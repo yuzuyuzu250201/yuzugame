@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Suika Game - Feedback Update</title>
+    <title>Suika Game - Fact Ticker Update</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         body { 
@@ -19,7 +19,23 @@
             position: relative;
         }
 
-        /* 통 양옆 반투명 배경 효과 */
+        /* [신규] 흘러가는 글귀 컨테이너 */
+        #ticker-container {
+            width: 450px; height: 30px; overflow: hidden; position: relative;
+            background: rgba(93, 64, 55, 0.1); border-radius: 8px; border: 1px solid rgba(93, 64, 55, 0.2);
+            display: flex; align-items: center;
+        }
+        .ticker-text {
+            position: absolute; white-space: nowrap; font-size: 13px; font-weight: bold;
+            color: #5d4037; transform: translateX(-100%);
+        }
+
+        /* 애니메이션 정의 */
+        @keyframes flow {
+            from { left: 0%; transform: translateX(-100%); }
+            to { left: 100%; transform: translateX(0%); }
+        }
+
         #center-area::before, #center-area::after {
             content: ""; position: absolute; top: 0; width: 100vw; height: 800px;
             background: rgba(255, 255, 255, 0.5); z-index: -1; pointer-events: none;
@@ -43,7 +59,6 @@
         #reset-btn { background: #ff7043; }
         #launch-btn { background: #4caf50; }
         
-        /* 버튼 스타일 유지 */
         #cheat-btn, #bug-btn { width: 180px; padding: 8px; cursor: pointer; color: #5d4037; border: 3px solid #5d4037; border-radius: 8px; font-weight: bold; font-size: 11px; }
         #cheat-btn { background: #ffeb3b; margin-bottom: 5px; }
         #bug-btn { background: #ffffff; }
@@ -69,8 +84,10 @@
             <div class="ui-box" id="evolution-chart"><div class="label" style="text-align: center;">EVOLUTION</div></div>
         </div>
         <div id="center-area">
+            <div id="ticker-container"></div>
+            
             <div id="game-container"><div id="limit-line-guide"></div></div>
-            <div id="game-warning">⚠️ 선을 넘거나 공이 밖으로 떨어지면 패배!</div>
+            <div id="game-warning">⚠️ 선을 넘거나 공이 밖으로 떨어지면 게임 오버!</div>
             <button id="cheat-btn">✨ 히든 치트키 ✨</button>
             <button id="bug-btn">버그로 억울하게 게임 오버 당했을 때 누르는 버튼</button>
         </div>
@@ -78,12 +95,48 @@
             <div class="ui-box"><div class="label">TIME</div><span id="timer-val">00:00</span></div>
             <div class="ui-box"><div class="label">SCORE</div><span id="score-val">0</span></div>
             <div class="ui-box"><div class="label">NEXT</div><div id="next-preview"><img id="next-img" src="" alt="Next"></div></div>
-            <div class="ui-box"><button id="reset-btn">RESET</button><button id="launch-btn">🚀 발 싸</button></div>
+            <div class="ui-box"><button id="reset-btn">RESET</button><button id="launch-btn">🚀 발 사</button></div>
         </div>
     </div>
 
 <script>
-// 게임 설정 및 오디오
+// [글귀 설정] 글귀를 추가하고 싶으면 이 리스트에 문자열을 넣으세요!
+const TRIVIA_LIST = [
+    "알고 계셨나요? 레몬 한 개에는 레몬 한 개의 비타민이 들어있습니다.",
+    "개복치의 학명은 \"몰라 몰라\" 입니다.",
+    "유즈는 사실 귀여운 고양이 메이드입니다.",
+    "서부 로랜드 고릴라의 학명은 \"고릴라 고릴라 고릴라\" 입니다.",
+    "DORO DORO DORO DORO DORO DORORONG",
+    "이 편지는 영국에서부터 시작되어...",
+    "이 게임으로 발생한 수익의 1할을 포토츠키에게 증여하라"
+];
+
+function startTicker() {
+    const container = document.getElementById('ticker-container');
+    
+    function spawnText() {
+        const text = TRIVIA_LIST[Math.floor(Math.random() * TRIVIA_LIST.length)];
+        const el = document.createElement('div');
+        el.className = 'ticker-text';
+        el.innerText = text;
+        
+        // 애니메이션 속도 조절 (글자 길이에 따라 조절 가능)
+        const duration = 8 + (text.length * 0.1); 
+        el.style.animation = `flow ${duration}s linear forwards`;
+        
+        container.appendChild(el);
+        
+        // 애니메이션 끝나면 요소 삭제
+        setTimeout(() => { el.remove(); }, duration * 1000);
+        
+        // 다음 문구 생성 예약 (5~12초 후)
+        setTimeout(spawnText, 5000 + Math.random() * 7000);
+    }
+    spawnText();
+}
+startTicker();
+
+// --- 기존 Matter.js 로직 (변화 없음) ---
 const bgm = new Audio('Anyone_in_2025.wav'); bgm.loop = true;
 const soundDrop = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
 const soundMerge = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3');
@@ -237,7 +290,6 @@ Events.on(engine, 'afterUpdate', () => {
     });
 });
 
-// 치트키 확률 가챠
 document.getElementById('cheat-btn').addEventListener('click', () => {
     const rand = Math.random() * 100;
     let url = 'https://youtu.be/dQw4w9WgXcQ?si=A2zpYlDcX7yCO3z5'; 
@@ -246,7 +298,6 @@ document.getElementById('cheat-btn').addEventListener('click', () => {
     window.open(url, '_blank');
 });
 
-// [신규] 버그 억울함 방지 버튼 팝업 로직
 document.getElementById('bug-btn').addEventListener('click', () => {
     alert("저런...");
 });
