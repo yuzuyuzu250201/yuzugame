@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Suika Game - Mobile Optimized</title>
+    <title>Suika Game - Death Floor Fixed</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         body { 
@@ -11,90 +11,34 @@
             min-height: 100vh; background: #fdf6e3; font-family: 'Pretendard', sans-serif; 
             overflow-x: hidden; padding: 10px; box-sizing: border-box;
         }
-
-        /* 메인 레이아웃 컨테이너: 모바일에서 세로 정렬 또는 스케일 조정 */
-        #main-wrapper {
-            display: flex; justify-content: center; align-items: flex-start; gap: 15px;
-            max-width: 100%; transition: transform 0.2s;
-        }
-
-        #left-sidebar, #right-sidebar { 
-            display: flex; flex-direction: column; gap: 10px; width: 155px;
-            flex-shrink: 0;
-        }
-        
-        #center-area { 
-            display: flex; flex-direction: column; align-items: center; gap: 10px; 
-            flex-shrink: 0;
-        }
-
-        /* 캔버스 크기를 반응형으로 조정 */
-        #game-container { 
-            position: relative; 
-            box-shadow: 0 10px 50px rgba(0,0,0,0.2); 
-            border-radius: 15px; 
-            background: #fff;
-            cursor: crosshair;
-            touch-action: none; /* 모바일 터치 스크롤 방지 */
-        }
-        canvas { 
-            display: block; border-radius: 15px; 
-            max-width: 100%; height: auto !important; 
-        }
-        
-        #limit-line-guide {
-            position: absolute; top: 12.5%; left: 0; width: 100%; height: 2px;
-            border-top: 2px dashed #e53935; opacity: 0.6; pointer-events: none;
-        }
-
-        .ui-box { 
-            background: rgba(255, 255, 255, 0.9); padding: 12px; border-radius: 12px; 
-            border: 3px solid #5d4037; text-align: center; 
-        }
-        
+        #main-wrapper { display: flex; justify-content: center; align-items: flex-start; gap: 15px; max-width: 100%; }
+        #left-sidebar, #right-sidebar { display: flex; flex-direction: column; gap: 10px; width: 155px; flex-shrink: 0; }
+        #center-area { display: flex; flex-direction: column; align-items: center; gap: 10px; flex-shrink: 0; }
+        #game-container { position: relative; box-shadow: 0 10px 50px rgba(0,0,0,0.2); border-radius: 15px; background: #fff; cursor: none; touch-action: none; }
+        canvas { display: block; border-radius: 15px; max-width: 100%; height: auto !important; }
+        #limit-line-guide { position: absolute; top: 12.5%; left: 0; width: 100%; height: 2px; border-top: 2px dashed #e53935; opacity: 0.6; pointer-events: none; }
+        .ui-box { background: rgba(255, 255, 255, 0.9); padding: 12px; border-radius: 12px; border: 3px solid #5d4037; text-align: center; }
         #evolution-chart { text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 8px; }
         .evo-item { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: bold; color: #5d4037; }
         .evo-img { width: 18px; height: 18px; border-radius: 50%; border: 1px solid #5d4037; object-fit: cover; }
-
         .control-group { margin-bottom: 8px; text-align: left; }
         .control-group label { font-size: 10px; font-weight: bold; color: #5d4037; display: block; }
-        
         input[type="range"] { width: 100%; cursor: pointer; }
         .mute-wrap { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: bold; color: #5d4037; justify-content: center; }
-        
-        #reset-btn, #launch-btn {
-            width: 100%; padding: 8px; cursor: pointer; color: white; border: none; 
-            border-radius: 8px; font-weight: bold; font-size: 12px; margin-bottom: 5px;
-        }
+        #reset-btn, #launch-btn { width: 100%; padding: 8px; cursor: pointer; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 12px; margin-bottom: 5px; }
         #reset-btn { background: #ff7043; }
         #launch-btn { background: #4caf50; }
-        #cheat-btn {
-            width: 160px; padding: 8px; cursor: pointer; background: #ffeb3b; color: #5d4037;
-            border: 3px solid #5d4037; border-radius: 8px; font-weight: bold; font-size: 12px;
-        }
-
+        #cheat-btn { width: 160px; padding: 8px; cursor: pointer; background: #ffeb3b; color: #5d4037; border: 3px solid #5d4037; border-radius: 8px; font-weight: bold; font-size: 12px; }
         #next-preview { width: 50px; height: 50px; margin: 5px auto; border: 2px dashed #ccc; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 50%; }
         #next-img { max-width: 100%; max-height: 100%; object-fit: contain; }
         .label { font-size: 11px; color: #8d6e63; font-weight: bold; margin-bottom: 5px; }
         #score-val, #timer-val { font-size: 18px; color: #5d4037; font-weight: bold; }
         #game-warning { font-weight: bold; color: #e53935; font-size: 11px; background: white; padding: 5px 10px; border-radius: 15px; border: 1px solid #e53935; text-align: center; }
-
-        /* 모바일용 미디어 쿼리 */
-        @media (max-width: 800px) {
-            #main-wrapper {
-                transform: scale(0.85); /* 화면이 작으면 전체적으로 축소 */
-            }
-        }
-        @media (max-width: 600px) {
-            #main-wrapper {
-                transform: scale(0.65); /* 더 작으면 더 축소 */
-            }
-            body { align-items: flex-start; padding-top: 20px; }
-        }
+        @media (max-width: 800px) { #main-wrapper { transform: scale(0.85); } }
+        @media (max-width: 600px) { #main-wrapper { transform: scale(0.65); } body { align-items: flex-start; padding-top: 20px; } }
     </style>
 </head>
 <body>
-
     <div id="main-wrapper">
         <div id="left-sidebar">
             <div class="ui-box">
@@ -103,31 +47,23 @@
                 <div class="control-group"><label>SFX</label><input type="range" id="sfx-vol" min="0" max="1" step="0.1" value="0.4"></div>
                 <div class="mute-wrap"><input type="checkbox" id="mute-chk"> <label for="mute-chk">MUTE</label></div>
             </div>
-            <div class="ui-box" id="evolution-chart">
-                <div class="label" style="text-align: center;">EVOLUTION</div>
-            </div>
+            <div class="ui-box" id="evolution-chart"><div class="label" style="text-align: center;">EVOLUTION</div></div>
         </div>
-
         <div id="center-area">
             <div id="game-container"><div id="limit-line-guide"></div></div>
-            <div id="game-warning">⚠️ 선을 넘거나 공이 밖으로 떨어지면 패배!</div>
+            <div id="game-warning">⚠️ 선을 넘거나 공이 밖으로 떨어지면 게임 오버!</div>
             <button id="cheat-btn">✨ 히든 치트키 ✨</button>
         </div>
-
         <div id="right-sidebar">
             <div class="ui-box"><div class="label">TIME</div><span id="timer-val">00:00</span></div>
             <div class="ui-box"><div class="label">SCORE</div><span id="score-val">0</span></div>
             <div class="ui-box"><div class="label">NEXT</div><div id="next-preview"><img id="next-img" src="" alt="Next"></div></div>
-            <div class="ui-box">
-                <button id="reset-btn">RESET</button>
-                <button id="launch-btn">🚀 발싸</button>
-            </div>
+            <div class="ui-box"><button id="reset-btn">RESET</button><button id="launch-btn">🚀 발 사</button></div>
         </div>
     </div>
 
 <script>
-const bgm = new Audio('Anyone_in_2025.wav');
-bgm.loop = true;
+const bgm = new Audio('Anyone_in_2025.wav'); bgm.loop = true;
 const soundDrop = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
 const soundMerge = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3');
 const soundLaunch = new Audio('https://assets.mixkit.co/active_storage/sfx/2816/2816-preview.mp3');
@@ -153,8 +89,7 @@ FRUITS_CONFIG.forEach(c => {
 });
 
 const { Engine, Render, Runner, World, Bodies, Events, Composite, Body } = Matter;
-const engine = Engine.create();
-engine.world.gravity.y = 1.0; 
+const engine = Engine.create(); engine.world.gravity.y = 1.0; 
 
 const render = Render.create({
     element: document.getElementById('game-container'),
@@ -162,24 +97,26 @@ const render = Render.create({
     options: { width: 450, height: 800, wireframes: false, background: 'transparent' }
 });
 
-Render.run(render);
-Runner.run(Runner.create(), engine);
+Render.run(render); Runner.run(Runner.create(), engine);
 
-const deathFloor = Bodies.rectangle(225, 850, 2000, 20, { isStatic: true, label: 'deathFloor', render: { fillStyle: 'transparent' } });
+// [버그 수정] 죽음의 바닥 판정 범위 확대 및 라벨 지정
+const deathFloor = Bodies.rectangle(225, 870, 4000, 60, { 
+    isStatic: true, label: 'deathFloor', render: { fillStyle: 'transparent' } 
+});
+
 World.add(engine.world, [
     deathFloor,
-    Bodies.rectangle(225, 795, 430, 20, { isStatic: true, render: { fillStyle: '#5d4037' } }),
-    Bodies.rectangle(5, 450, 10, 700, { isStatic: true, render: { fillStyle: '#5d4037' } }),
-    Bodies.rectangle(445, 450, 10, 700, { isStatic: true, render: { fillStyle: '#5d4037' } })
+    Bodies.rectangle(225, 795, 430, 20, { isStatic: true, label: 'safeWall', render: { fillStyle: '#5d4037' } }),
+    Bodies.rectangle(5, 450, 10, 700, { isStatic: true, label: 'safeWall', render: { fillStyle: '#5d4037' } }),
+    Bodies.rectangle(445, 450, 10, 700, { isStatic: true, label: 'safeWall', render: { fillStyle: '#5d4037' } })
 ]);
 
 let score=0, nextLevel=Math.floor(Math.random()*3)+1, isGameOver=false, isMuted=false, startTime=Date.now(), mouseX=225;
 
-// 터치 및 마우스 이동 처리 (통합)
 const handleMove = (e) => {
     const rect = render.canvas.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const scale = 450 / rect.width; // 실제 렌더링 크기와 캔버스 좌표계 비율 보정
+    const scale = 450 / rect.width;
     mouseX = (clientX - rect.left) * scale;
 };
 render.canvas.addEventListener('mousemove', handleMove);
@@ -233,13 +170,20 @@ const dropFruit = () => {
 render.canvas.addEventListener('mousedown', dropFruit);
 render.canvas.addEventListener('touchstart', (e) => { e.preventDefault(); dropFruit(); }, {passive: false});
 
+// [충돌 판정 버그 수정] 바닥에 닿는 감지 로직 강화
 Events.on(engine, 'collisionStart', (event) => {
     event.pairs.forEach((pair) => {
         const { bodyA, bodyB } = pair;
+        
+        // 공이 죽음의 바닥에 닿았을 때
         if (bodyA.label === 'deathFloor' || bodyB.label === 'deathFloor') {
-            const target = bodyA.label === 'deathFloor' ? bodyB : bodyA;
-            if (!target.isEffect && !target.isStatic) gameOverAction();
+            const ball = bodyA.label === 'deathFloor' ? bodyB : bodyA;
+            // 효과용 공(isEffect)이 아니고 정적 물체가 아닐 때만 게임오버
+            if (!ball.isEffect && !ball.isStatic && ball.circleRadius) {
+                gameOverAction();
+            }
         }
+
         if (bodyA.label === bodyB.label && !bodyA.isStatic && !bodyB.isStatic) {
             const currentLevel = parseInt(bodyA.label);
             if (currentLevel < 10) {
@@ -265,7 +209,10 @@ Events.on(engine, 'afterUpdate', () => {
     if (isGameOver) return;
     Composite.allBodies(engine.world).forEach(b => {
         if (!b.isStatic && b.circleRadius && !b.isEffect) {
+            // 상단 선 침범 판정
             if (Date.now() - b.spawnTime > 2500 && (b.position.y - b.circleRadius) < 100) gameOverAction();
+            // 화면 하단(y좌표)을 완전히 벗어났을 경우의 안전장치
+            if (b.position.y > 850) gameOverAction();
         }
     });
 });
@@ -289,5 +236,3 @@ document.getElementById('next-img').src = FRUITS_CONFIG[nextLevel-1].img;
 </script>
 </body>
 </html>
-
-
