@@ -3,77 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Custom Suika Game</title>
+    <title>Custom Suika Game - Border Update</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         body { 
-            margin: 0; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            min-height: 100vh; 
-            background: #fdf6e3; 
-            font-family: 'Pretendard', sans-serif; 
-            gap: 40px; 
+            margin: 0; display: flex; justify-content: center; align-items: center; 
+            min-height: 100vh; background: #fdf6e3; font-family: 'Pretendard', sans-serif; gap: 40px; 
         }
-
-        #left-sidebar, #right-sidebar {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        #game-container { 
-            position: relative; 
-            box-shadow: 0 10px 50px rgba(0,0,0,0.2);
-            border-radius: 15px;
-            overflow: hidden;
-        }
-        canvas { 
-            border: 10px solid #5d4037; 
-            background: #fff; 
-            display: block;
-        }
-
-        .ui-box { 
-            background: rgba(255, 255, 255, 0.9); 
-            padding: 20px; 
-            border-radius: 12px; 
-            border: 3px solid #5d4037; 
-            width: 140px; 
-            text-align: center;
-        }
-
+        #left-sidebar, #right-sidebar { display: flex; flex-direction: column; gap: 20px; }
+        #game-container { position: relative; box-shadow: 0 10px 50px rgba(0,0,0,0.2); border-radius: 15px; overflow: hidden; }
+        canvas { border: 10px solid #5d4037; background: #fff; display: block; }
+        .ui-box { background: rgba(255, 255, 255, 0.9); padding: 20px; border-radius: 12px; border: 3px solid #5d4037; width: 140px; text-align: center; }
         .control-group { margin-bottom: 15px; text-align: left; }
         .control-group label { font-size: 11px; font-weight: bold; color: #5d4037; display: block; margin-bottom: 5px; }
         input[type="range"] { width: 100%; cursor: pointer; }
-        
-        #mute-btn { 
-            width: 100%; padding: 10px; cursor: pointer; 
-            background: #5d4037; color: white; border: none; 
-            border-radius: 8px; font-weight: bold; 
-        }
+        #mute-btn { width: 100%; padding: 10px; cursor: pointer; background: #5d4037; color: white; border: none; border-radius: 8px; font-weight: bold; }
         #mute-btn.muted { background: #e53935; }
-
-        #next-preview { 
-            width: 80px; height: 80px; 
-            margin: 15px auto; 
-            border: 2px dashed #ccc;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+        #next-preview { width: 80px; height: 80px; margin: 15px auto; border: 2px dashed #ccc; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 50%; }
         #next-img { max-width: 100%; max-height: 100%; object-fit: contain; }
-
         .label { font-size: 14px; color: #8d6e63; font-weight: bold; }
         #score-val { font-size: 28px; color: #5d4037; font-weight: bold; }
-        
-        #limit-line { 
-            position: absolute; top: 100px; left: 0; 
-            width: 100%; height: 2px; 
-            border-top: 2px dashed #e53935; opacity: 0.5; 
-            pointer-events: none;
-        }
+        #limit-line { position: absolute; top: 100px; left: 0; width: 100%; height: 2px; border-top: 2px dashed #e53935; opacity: 0.5; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -81,89 +31,55 @@
     <div id="left-sidebar">
         <div class="ui-box">
             <div class="label" style="margin-bottom: 15px;">AUDIO SETTINGS</div>
-            <div class="control-group">
-                <label>BGM VOL</label>
-                <input type="range" id="bgm-vol" min="0" max="1" step="0.1" value="0.3">
-            </div>
-            <div class="control-group">
-                <label>SFX VOL</label>
-                <input type="range" id="sfx-vol" min="0" max="1" step="0.1" value="0.4">
-            </div>
+            <div class="control-group"><label>BGM VOL</label><input type="range" id="bgm-vol" min="0" max="1" step="0.1" value="0.3"></div>
+            <div class="control-group"><label>SFX VOL</label><input type="range" id="sfx-vol" min="0" max="1" step="0.1" value="0.4"></div>
             <button id="mute-btn">MUTE OFF</button>
         </div>
     </div>
 
-    <div id="game-container">
-        <div id="limit-line"></div>
-    </div>
+    <div id="game-container"><div id="limit-line"></div></div>
 
     <div id="right-sidebar">
-        <div class="ui-box">
-            <div class="label">SCORE</div>
-            <span id="score-val">0</span>
-        </div>
-        <div class="ui-box">
-            <div class="label">NEXT CHARACTER</div>
-            <div id="next-preview">
-                <img id="next-img" src="" alt="Next">
-            </div>
-        </div>
+        <div class="ui-box"><div class="label">SCORE</div><span id="score-val">0</span></div>
+        <div class="ui-box"><div class="label">NEXT</div><div id="next-preview"><img id="next-img" src="" alt="Next"></div></div>
     </div>
 
 <script>
-// --- [1. 사운드 및 이미지 설정] ---
-const bgm = new Audio('Anyone_in_2025.wav'); //
+const bgm = new Audio('Anyone_in_2025.wav');
 bgm.loop = true;
-bgm.volume = 0.3;
-
 const soundDrop = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
 const soundMerge = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3');
 
-// 단계별 이미지 및 크기 설정
+// 반지름(radius)과 이미지 스케일을 미세 조정했습니다.
 const FRUITS_CONFIG = [
-    { level: 1, radius: 25, img: '1.webp' },
-    { level: 2, radius: 35, img: '2.webp' },
-    { level: 3, radius: 45, img: '3.webp' },
-    { level: 4, radius: 55, img: '4.webp' },
-    { level: 5, radius: 65, img: '5.webp' },
-    { level: 6, radius: 80, img: '6.webp' },
-    { level: 7, radius: 95, img: '7.webp' },
-    { level: 8, radius: 110, img: '8.webp' },
-    { level: 9, radius: 130, img: '9.webp' },
-    { level: 10, radius: 160, img: '10.jpg' }
+    { level: 1, radius: 20, img: '1.webp', scale: 0.18 },
+    { level: 2, radius: 28, img: '2.webp', scale: 0.25 },
+    { level: 3, radius: 38, img: '3.webp', scale: 0.35 },
+    { level: 4, radius: 48, img: '4.webp', scale: 0.45 },
+    { level: 5, radius: 58, img: '5.webp', scale: 0.55 },
+    { level: 6, radius: 72, img: '6.webp', scale: 0.68 },
+    { level: 7, radius: 88, img: '7.webp', scale: 0.82 },
+    { level: 8, radius: 105, img: '8.webp', scale: 0.98 },
+    { level: 9, radius: 125, img: '9.webp', scale: 1.15 },
+    { level: 10, radius: 155, img: '10.jpg', scale: 1.40 }
 ];
 
 let isMuted = false;
 let currentBgmVol = 0.3;
 let currentSfxVol = 0.4;
+bgm.volume = currentBgmVol;
+soundDrop.volume = currentSfxVol;
+soundMerge.volume = currentSfxVol;
 
-// 오디오 리스너 생략 (이전과 동일)
-document.getElementById('bgm-vol').addEventListener('input', (e) => {
-    currentBgmVol = e.target.value;
-    if (!isMuted) bgm.volume = currentBgmVol;
-});
-document.getElementById('sfx-vol').addEventListener('input', (e) => {
-    currentSfxVol = e.target.value;
-    if (!isMuted) { soundDrop.volume = currentSfxVol; soundMerge.volume = currentSfxVol; }
-});
+// 볼륨/음소거 로직은 유지
+document.getElementById('bgm-vol').addEventListener('input', (e) => { currentBgmVol = e.target.value; if (!isMuted) bgm.volume = currentBgmVol; });
+document.getElementById('sfx-vol').addEventListener('input', (e) => { currentSfxVol = e.target.value; if (!isMuted) { soundDrop.volume = currentSfxVol; soundMerge.volume = currentSfxVol; } });
 document.getElementById('mute-btn').addEventListener('click', (e) => {
     isMuted = !isMuted;
-    if (isMuted) {
-        bgm.volume = 0; soundDrop.volume = 0; soundMerge.volume = 0;
-        e.target.innerText = "MUTE ON"; e.target.classList.add('muted');
-    } else {
-        bgm.volume = currentBgmVol; soundDrop.volume = currentSfxVol; soundMerge.volume = currentSfxVol;
-        e.target.innerText = "MUTE OFF"; e.target.classList.remove('muted');
-    }
+    if (isMuted) { bgm.volume = 0; soundDrop.volume = 0; soundMerge.volume = 0; e.target.innerText = "MUTE ON"; e.target.classList.add('muted'); }
+    else { bgm.volume = currentBgmVol; soundDrop.volume = currentSfxVol; soundMerge.volume = currentSfxVol; e.target.innerText = "MUTE OFF"; e.target.classList.remove('muted'); }
 });
 
-function playSfx(audio) {
-    if (isMuted) return;
-    audio.currentTime = 0;
-    audio.play().catch(() => {}); 
-}
-
-// --- [2. Matter.js 물리 엔진] ---
 const { Engine, Render, Runner, World, Bodies, Events } = Matter;
 const engine = Engine.create();
 const render = Render.create({
@@ -176,7 +92,7 @@ Render.run(render);
 Runner.run(Runner.create(), engine);
 
 World.add(engine.world, [
-    Bodies.rectangle(225, 690, 450, 20, { isStatic: true, render: { fillStyle: '#5d4037' } }),
+    Bodies.rectangle(225, 695, 450, 30, { isStatic: true, render: { fillStyle: '#5d4037' } }),
     Bodies.rectangle(5, 350, 10, 700, { isStatic: true, render: { fillStyle: '#5d4037' } }),
     Bodies.rectangle(445, 350, 10, 700, { isStatic: true, render: { fillStyle: '#5d4037' } })
 ]);
@@ -186,37 +102,55 @@ let nextLevel = Math.floor(Math.random() * 3) + 1;
 let isGameOver = false;
 
 function updateNextUI() {
-    const config = FRUITS_CONFIG[nextLevel - 1];
-    document.getElementById('next-img').src = config.img;
+    document.getElementById('next-img').src = FRUITS_CONFIG[nextLevel - 1].img;
 }
 
 function createFruit(x, y, level) {
     const config = FRUITS_CONFIG[level - 1];
-    // 원형 판정은 그대로 유지하되 겉모습만 이미지를 씌움
     return Bodies.circle(x, y, config.radius, {
         label: level.toString(),
         restitution: 0.3,
         render: { 
             sprite: { 
                 texture: config.img,
-                // 이미지 크기를 radius에 맞춰 자동 조절 (원래 이미지 크기에 따라 조정 필요할 수 있음)
-                xScale: (config.radius * 2) / 250, 
-                yScale: (config.radius * 2) / 250 
+                xScale: config.scale,
+                yScale: config.scale 
             } 
         }
     });
 }
 
+// [핵심] 캐릭터마다 점선 테두리를 그리는 코드
+Events.on(render, 'afterRender', () => {
+    const context = render.context;
+    const bodies = Matter.Composite.allBodies(engine.world);
+
+    context.save();
+    bodies.forEach(body => {
+        if (body.label !== "Rectangle Body" && !body.isStatic) {
+            const { x, y } = body.position;
+            const radius = body.circleRadius;
+
+            context.beginPath();
+            context.arc(x, y, radius, 0, 2 * Math.PI);
+            context.setLineDash([5, 5]); // 점선 패턴 [실선길이, 공백길이]
+            context.lineWidth = 2;
+            context.strokeStyle = '#5d4037'; // 캐릭터와 잘 어울리는 갈색 테두리
+            context.stroke();
+            context.closePath();
+        }
+    });
+    context.restore();
+});
+
 window.addEventListener('mousedown', (e) => {
     if (isGameOver || e.target.closest('#left-sidebar') || e.target.closest('#right-sidebar')) return;
     if (bgm.paused && !isMuted) bgm.play();
-
     const canvasRect = render.canvas.getBoundingClientRect();
     const x = e.clientX - canvasRect.left;
-    
     if (x > 0 && x < 450) {
         World.add(engine.world, createFruit(x, 50, nextLevel));
-        playSfx(soundDrop);
+        if (!isMuted) { soundDrop.currentTime = 0; soundDrop.play(); }
         nextLevel = Math.floor(Math.random() * 3) + 1;
         updateNextUI();
     }
@@ -232,10 +166,9 @@ Events.on(engine, 'collisionStart', (event) => {
                 const midY = (bodyA.position.y + bodyB.position.y) / 2;
                 World.remove(engine.world, [bodyA, bodyB]);
                 World.add(engine.world, createFruit(midX, midY, currentLevel + 1));
-                playSfx(soundMerge);
+                if (!isMuted) { soundMerge.currentTime = 0; soundMerge.play(); }
                 score += currentLevel * 10;
                 document.getElementById('score-val').innerText = score;
-                if (currentLevel + 1 === 10) setTimeout(() => alert("CLEAR!"), 500);
             }
         }
     });
@@ -245,10 +178,8 @@ Events.on(engine, 'afterUpdate', () => {
     if (isGameOver) return;
     engine.world.bodies.forEach(body => {
         if (!body.isStatic && body.position.y < 100 && body.velocity.y < 0.1) {
-            isGameOver = true;
-            bgm.pause();
-            alert(`GAME OVER! ${score}점`);
-            location.reload();
+            isGameOver = true; bgm.pause();
+            alert(`GAME OVER! ${score}점`); location.reload();
         }
     });
 });
