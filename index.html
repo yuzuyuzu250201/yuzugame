@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Suika Game - Gacha Cheat & Fast Cooldown</title>
+    <title>Suika Game - Side View & Gacha Update</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         body { 
@@ -17,13 +17,17 @@
         #center-area { 
             display: flex; flex-direction: column; align-items: center; gap: 10px; flex-shrink: 0;
             position: relative;
-            background: linear-gradient(to right, 
-                rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.4) calc(50% - 225px), 
-                transparent calc(50% - 225px), transparent calc(50% + 225px), 
-                rgba(255, 255, 255, 0.4) calc(50% + 225px), rgba(255, 255, 255, 0.4) 100%);
         }
 
-        #game-container { position: relative; box-shadow: 0 10px 50px rgba(0,0,0,0.2); border-radius: 15px; background: #fff; cursor: none; touch-action: none; }
+        /* 통 양옆 반투명 배경 효과 */
+        #center-area::before, #center-area::after {
+            content: ""; position: absolute; top: 0; width: 100vw; height: 800px;
+            background: rgba(255, 255, 255, 0.5); z-index: -1; pointer-events: none;
+        }
+        #center-area::before { right: 50%; margin-right: 225px; } /* 왼쪽 가림막 */
+        #center-area::after { left: 50%; margin-left: 225px; }  /* 오른쪽 가림막 */
+
+        #game-container { position: relative; box-shadow: 0 10px 50px rgba(0,0,0,0.2); border-radius: 15px; background: #fff; cursor: none; touch-action: none; z-index: 1; }
         canvas { display: block; border-radius: 15px; max-width: 100%; height: auto !important; }
         
         #limit-line-guide { position: absolute; top: 12.5%; left: 0; width: 100%; height: 2px; border-top: 2px dashed #e53935; opacity: 0.6; pointer-events: none; }
@@ -68,11 +72,12 @@
             <div class="ui-box"><div class="label">TIME</div><span id="timer-val">00:00</span></div>
             <div class="ui-box"><div class="label">SCORE</div><span id="score-val">0</span></div>
             <div class="ui-box"><div class="label">NEXT</div><div id="next-preview"><img id="next-img" src="" alt="Next"></div></div>
-            <div class="ui-box"><button id="reset-btn">RESET</button><button id="launch-btn">🚀 발 싸</button></div>
+            <div class="ui-box"><button id="reset-btn">RESET</button><button id="launch-btn">🚀 발 사</button></div>
         </div>
     </div>
 
 <script>
+// 오디오 및 기본 설정 (생략 없음)
 const bgm = new Audio('Anyone_in_2025.wav'); bgm.loop = true;
 const soundDrop = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
 const soundMerge = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3');
@@ -109,7 +114,8 @@ const render = Render.create({
 
 Render.run(render); Runner.run(Runner.create(), engine);
 
-const deathFloor = Bodies.rectangle(225, 870, 4000, 60, { isStatic: true, label: 'deathFloor', render: { fillStyle: 'transparent' } });
+// 죽음의 바닥 (보이지 않지만 판정은 확실히)
+const deathFloor = Bodies.rectangle(225, 870, 5000, 60, { isStatic: true, label: 'deathFloor', render: { fillStyle: 'transparent' } });
 World.add(engine.world, [
     deathFloor,
     Bodies.rectangle(225, 795, 430, 20, { isStatic: true, label: 'safeWall', render: { fillStyle: '#5d4037' } }),
@@ -118,7 +124,7 @@ World.add(engine.world, [
 ]);
 
 let score=0, nextLevel=Math.floor(Math.random()*3)+1, isGameOver=false, isMuted=false, startTime=Date.now(), mouseX=225;
-let isClickable = true; // 쿨타임 변수
+let isClickable = true;
 
 const handleMove = (e) => {
     const rect = render.canvas.getBoundingClientRect();
@@ -157,10 +163,10 @@ Events.on(render, 'afterRender', () => {
             ctx.beginPath(); ctx.setLineDash([5, 10]); ctx.moveTo(mouseX, 100); ctx.lineTo(mouseX, 780);
             ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
         } else {
-            // [업데이트] 쿨타임 메시지 표시
+            // [업데이트] 쿨타임 메시지
             ctx.save();
-            ctx.font = "bold 16px Pretendard";
-            ctx.fillStyle = "rgba(93, 64, 55, 0.6)";
+            ctx.font = "bold 14px Pretendard";
+            ctx.fillStyle = "rgba(93, 64, 55, 0.7)";
             ctx.textAlign = "center";
             ctx.fillText("(드롭 쿨타임...)", mouseX, 50);
             ctx.restore();
@@ -180,10 +186,8 @@ const dropFruit = () => {
     if (mouseX > 25 && mouseX < 425) {
         World.add(engine.world, createFruit(mouseX, 50, nextLevel));
         if(!isMuted) { soundDrop.currentTime=0; soundDrop.play(); }
-        
         isClickable = false;
-        setTimeout(() => { isClickable = true; }, 500); // 쿨타임 0.5초로 변경
-
+        setTimeout(() => { isClickable = true; }, 500); // 0.5초 쿨타임
         nextLevel = Math.floor(Math.random()*3)+1;
         document.getElementById('next-img').src = FRUITS_CONFIG[nextLevel-1].img;
     }
@@ -229,17 +233,12 @@ Events.on(engine, 'afterUpdate', () => {
     });
 });
 
-// [업데이트] 치트키 버튼 가챠 시스템
+// [업데이트] 치트키 확률 가챠
 document.getElementById('cheat-btn').addEventListener('click', () => {
     const rand = Math.random() * 100;
-    let url = 'https://youtu.be/dQw4w9WgXcQ?si=A2zpYlDcX7yCO3z5'; // 기본 94%
-    
-    if (rand < 1) { // 1% 확률
-        url = 'https://youtu.be/n0XsH4qJ9N0?si=4TbIIuk1RK0w3Tg0';
-    } else if (rand < 6) { // 5% 확률 (1~6 사이)
-        url = 'https://www.youtube.com/watch?v=SYacnl6MpSA';
-    }
-    
+    let url = 'https://youtu.be/dQw4w9WgXcQ?si=A2zpYlDcX7yCO3z5'; // 94%
+    if (rand < 1) url = 'https://youtu.be/n0XsH4qJ9N0?si=4TbIIuk1RK0w3Tg0'; // 1%
+    else if (rand < 6) url = 'https://www.youtube.com/watch?v=SYacnl6MpSA'; // 5%
     window.open(url, '_blank');
 });
 
@@ -256,7 +255,6 @@ document.getElementById('bgm-vol').addEventListener('input', (e) => bgm.volume =
 document.getElementById('sfx-vol').addEventListener('input', (e) => { soundDrop.volume=e.target.value; soundMerge.volume=e.target.value; soundLaunch.volume=e.target.value; });
 document.getElementById('mute-chk').addEventListener('change', (e) => { isMuted=e.target.checked; isMuted ? bgm.pause() : (score>0 && bgm.play()); });
 document.getElementById('reset-btn').addEventListener('click', () => { if (confirm("진짜루요?")) location.reload(); });
-
 document.getElementById('next-img').src = FRUITS_CONFIG[nextLevel-1].img;
 </script>
 </body>
