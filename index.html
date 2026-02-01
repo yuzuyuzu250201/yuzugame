@@ -2,115 +2,111 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Suika Game - Mobile Optimized</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suika Game - Hidden Cheat</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
-        /* 모바일 대응 레이아웃 */
         body { 
             margin: 0; display: flex; justify-content: center; align-items: center; 
-            min-height: 100vh; background: #fdf6e3; font-family: 'Pretendard', sans-serif; 
-            overflow-x: hidden; padding: 10px; box-sizing: border-box;
+            min-height: 100vh; background: #fdf6e3; font-family: 'Pretendard', sans-serif; gap: 20px; 
+            overflow: hidden; 
         }
 
-        #main-wrapper {
-            display: flex; flex-direction: row; gap: 15px; align-items: flex-start;
-            max-width: 100%;
+        #left-sidebar, #right-sidebar { 
+            display: flex; flex-direction: column; gap: 15px; height: 800px;
+            justify-content: flex-start; margin-top: 20px;
         }
-
-        /* 화면이 작아지면 사이드바를 아래로 내림 */
-        @media (max-width: 850px) {
-            body { overflow-y: auto; align-items: flex-start; }
-            #main-wrapper { flex-direction: column; align-items: center; }
-            #left-sidebar, #right-sidebar { flex-direction: row; height: auto; width: 100%; flex-wrap: wrap; justify-content: center; }
-            .ui-box { width: 140px; padding: 8px; }
-            #evolution-chart { display: none; } /* 모바일에서 공간 확보를 위해 진화표 숨김 (선택사항) */
-        }
-
-        #left-sidebar, #right-sidebar { display: flex; flex-direction: column; gap: 12px; }
-        #center-area { display: flex; flex-direction: column; align-items: center; gap: 10px; flex-shrink: 0; }
+        
+        #center-area { display: flex; flex-direction: column; align-items: center; gap: 15px; }
 
         #game-container { 
-            position: relative; box-shadow: 0 10px 40px rgba(0,0,0,0.15); 
-            border-radius: 15px; background: #fff; overflow: hidden;
-            touch-action: none; /* 모바일 드래그 방지 */
+            position: relative; 
+            box-shadow: 0 10px 50px rgba(0,0,0,0.2); 
+            border-radius: 15px; 
+            background: #fff;
+            cursor: none; 
         }
-        
-        /* 캔버스 크기를 반응형으로 조절 */
-        canvas { max-width: 100%; height: auto !important; display: block; }
+        canvas { display: block; border-radius: 15px; }
         
         #limit-line-guide {
-            position: absolute; top: 12.5%; left: 0; width: 100%; height: 2px;
+            position: absolute; top: 100px; left: 0; width: 100%; height: 2px;
             border-top: 2px dashed #e53935; opacity: 0.6; pointer-events: none;
         }
 
         .ui-box { 
-            background: rgba(255, 255, 255, 0.9); padding: 12px; border-radius: 12px; 
-            border: 3px solid #5d4037; text-align: center; box-sizing: border-box;
+            background: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 12px; 
+            border: 3px solid #5d4037; width: 155px; text-align: center; 
         }
         
-        #evolution-chart { text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 8px; width: 155px; }
-        .evo-item { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: bold; color: #5d4037; }
-        .evo-img { width: 18px; height: 18px; border-radius: 50%; border: 1px solid #5d4037; }
+        #evolution-chart { text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 10px; }
+        .evo-item { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: bold; color: #5d4037; }
+        .evo-img { width: 22px; height: 22px; border-radius: 50%; border: 1px solid #5d4037; object-fit: cover; }
 
-        .control-group { margin-bottom: 8px; text-align: left; }
-        .control-group label { font-size: 10px; font-weight: bold; color: #5d4037; display: block; }
+        .control-group { margin-bottom: 12px; text-align: left; }
+        .control-group label { font-size: 11px; font-weight: bold; color: #5d4037; display: block; margin-bottom: 4px; }
         
         input[type="range"] { width: 100%; cursor: pointer; }
-        .mute-wrap { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: bold; }
+        .mute-wrap { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: bold; color: #5d4037; justify-content: center; margin-top: 5px; }
         
-        #reset-btn, #launch-btn, #cheat-btn {
-            width: 100%; padding: 10px; cursor: pointer; border: none; border-radius: 8px; font-weight: bold; font-family: inherit;
+        #reset-btn {
+            width: 100%; padding: 10px; cursor: pointer; background: #ff7043; color: white;
+            border: none; border-radius: 8px; font-weight: bold; transition: background 0.2s; margin-bottom: 8px;
         }
-        #reset-btn { background: #ff7043; color: white; margin-bottom: 5px; }
-        #launch-btn { background: #4caf50; color: white; }
-        #cheat-btn { 
-            margin-top: 5px; background: #ffeb3b; color: #5d4037; border: 2px solid #5d4037; width: auto; padding: 8px 20px;
+        #launch-btn {
+            width: 100%; padding: 10px; cursor: pointer; background: #4caf50; color: white;
+            border: none; border-radius: 8px; font-weight: bold; transition: background 0.2s;
         }
 
-        #next-preview { width: 50px; height: 50px; margin: 5px auto; border: 2px dashed #ccc; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+        /* 치트키 버튼 스타일 */
+        #cheat-btn {
+            width: 180px; padding: 10px; cursor: pointer; background: #ffeb3b; color: #5d4037;
+            border: 3px solid #5d4037; border-radius: 8px; font-weight: bold; 
+            box-shadow: 0 4px 0 #8d6e63; transition: all 0.1s;
+        }
+        #cheat-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #8d6e63; }
+
+        #next-preview { width: 70px; height: 70px; margin: 5px auto; border: 2px dashed #ccc; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 50%; }
         #next-img { max-width: 100%; max-height: 100%; object-fit: contain; }
-        .label { font-size: 11px; color: #8d6e63; font-weight: bold; margin-bottom: 5px; }
-        #score-val, #timer-val { font-size: 20px; color: #5d4037; font-weight: bold; }
-        #game-warning { font-weight: bold; color: #e53935; font-size: 11px; background: white; padding: 5px 10px; border-radius: 10px; border: 1px solid #e53935; text-align: center; }
+        .label { font-size: 13px; color: #8d6e63; font-weight: bold; margin-bottom: 8px; }
+        #score-val, #timer-val { font-size: 24px; color: #5d4037; font-weight: bold; }
+        #game-warning { font-weight: bold; color: #e53935; font-size: 13px; background: white; padding: 5px 15px; border-radius: 15px; border: 1px solid #e53935; }
     </style>
 </head>
 <body>
 
-<div id="main-wrapper">
     <div id="left-sidebar">
         <div class="ui-box">
-            <div class="label">AUDIO</div>
-            <div class="control-group"><input type="range" id="bgm-vol" min="0" max="1" step="0.1" value="0.3"></div>
-            <div class="mute-wrap"><input type="checkbox" id="mute-chk"> <label for="mute-chk">MUTE</label></div>
+            <div class="label">AUDIO SETTINGS</div>
+            <div class="control-group"><label>BGM VOL</label><input type="range" id="bgm-vol" min="0" max="1" step="0.1" value="0.3"></div>
+            <div class="control-group"><label>SFX VOL</label><input type="range" id="sfx-vol" min="0" max="1" step="0.1" value="0.4"></div>
+            <div class="mute-wrap"><input type="checkbox" id="mute-chk"> <label for="mute-chk">MUTE ALL</label></div>
         </div>
-        <div class="ui-box" id="evolution-chart"></div>
+        <div class="ui-box" id="evolution-chart"><div class="label" style="text-align: center;">EVOLUTION</div></div>
     </div>
 
     <div id="center-area">
-        <div id="game-container">
-            <div id="limit-line-guide"></div>
-        </div>
-        <div id="game-warning">⚠️ 선을 넘거나 떨어지면 게임 오버!</div>
-        <button id="cheat-btn">✨ 히든 치트키 ✨</button>
+        <div id="game-container"><div id="limit-line-guide"></div></div>
+        <div id="game-warning">⚠️ 선을 넘거나 공이 밖으로 떨어지면 게임 오버!</div>
+        <button id="cheat-btn">✨ 히든 치트키 쓰기 ✨</button>
     </div>
 
     <div id="right-sidebar">
-        <div class="ui-box"><div class="label">TIME</div><span id="timer-val">00:00</span></div>
+        <div class="ui-box"><div class="label">PLAY TIME</div><span id="timer-val">00:00</span></div>
         <div class="ui-box"><div class="label">SCORE</div><span id="score-val">0</span></div>
+        <div class="ui-box"><div class="label">NEXT</div><div id="next-preview"><img id="next-img" src="" alt="Next"></div></div>
         <div class="ui-box">
-            <div class="label">NEXT</div>
-            <div id="next-preview"><img id="next-img" src="" alt="Next"></div>
-        </div>
-        <div class="ui-box">
-            <button id="reset-btn">RESET</button>
-            <button id="launch-btn">🚀 발사</button>
+            <button id="reset-btn">GAME RESET</button>
+            <button id="launch-btn">🚀 발 사</button>
         </div>
     </div>
-</div>
 
 <script>
-// 기존 설정 데이터 (유지)
+const bgm = new Audio('Anyone_in_2025.wav');
+bgm.loop = true;
+const soundDrop = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
+const soundMerge = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3');
+const soundLaunch = new Audio('https://assets.mixkit.co/active_storage/sfx/2816/2816-preview.mp3');
+
 const FRUITS_CONFIG = [
     { level: 1, radius: 20, img: '1.webp', scale: 0.18, name: 'Lv.1' },
     { level: 2, radius: 28, img: '2.webp', scale: 0.25, name: 'Lv.2' },
@@ -124,17 +120,17 @@ const FRUITS_CONFIG = [
     { level: 10, radius: 155, img: '10.png', scale: 1.40, name: 'Final' }
 ];
 
-// 초기화 로직
 const evoContainer = document.getElementById('evolution-chart');
-FRUITS_CONFIG.forEach(c => {
-    const d = document.createElement('div'); d.className = 'evo-item';
-    d.innerHTML = `<img src="${c.img}" class="evo-img"><span>${c.name}</span>`;
-    evoContainer.appendChild(d);
+FRUITS_CONFIG.forEach((config) => {
+    const item = document.createElement('div');
+    item.className = 'evo-item';
+    item.innerHTML = `<img src="${config.img}" class="evo-img"><span>${config.name}</span>`;
+    evoContainer.appendChild(item);
 });
 
 const { Engine, Render, Runner, World, Bodies, Events, Composite, Body } = Matter;
 const engine = Engine.create();
-engine.world.gravity.y = 1.0;
+engine.world.gravity.y = 1.0; 
 
 const render = Render.create({
     element: document.getElementById('game-container'),
@@ -145,66 +141,74 @@ const render = Render.create({
 Render.run(render);
 Runner.run(Runner.create(), engine);
 
-// 통 가이드 벽
-const deathFloor = Bodies.rectangle(225, 820, 2000, 20, { isStatic: true, label: 'deathFloor' });
+const deathFloor = Bodies.rectangle(225, 820, 2000, 20, { isStatic: true, label: 'deathFloor', render: { fillStyle: 'transparent' } });
 World.add(engine.world, [
     deathFloor,
-    Bodies.rectangle(225, 795, 430, 20, { isStatic: true, render: { fillStyle: '#5d4037' } }),
-    Bodies.rectangle(5, 450, 10, 700, { isStatic: true, render: { fillStyle: '#5d4037' } }),
-    Bodies.rectangle(445, 450, 10, 700, { isStatic: true, render: { fillStyle: '#5d4037' } })
+    Bodies.rectangle(225, 795, 430, 20, { isStatic: true, label: 'safeWall', render: { fillStyle: '#5d4037' } }),
+    Bodies.rectangle(5, 450, 10, 700, { isStatic: true, label: 'safeWall', render: { fillStyle: '#5d4037' } }),
+    Bodies.rectangle(445, 450, 10, 700, { isStatic: true, label: 'safeWall', render: { fillStyle: '#5d4037' } })
 ]);
 
-let score = 0, nextLevel = Math.floor(Math.random() * 3) + 1, isGameOver = false, isMuted = false, startTime = Date.now(), mouseX = 225;
+let score = 0;
+let nextLevel = Math.floor(Math.random() * 3) + 1;
+let isGameOver = false;
+let isMuted = false;
+let startTime = Date.now();
+let mouseX = 225;
 
-// 사운드
-const bgm = new Audio('Anyone_in_2025.wav'); bgm.loop = true;
-const soundDrop = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
-const soundMerge = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3');
-
-// 입력 처리 (모바일/PC 공통)
-function handleMove(e) {
-    if (isGameOver) return;
+render.canvas.addEventListener('mousemove', (e) => {
     const rect = render.canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const scaleX = 450 / rect.width; // 캔버스 실제 크기 대비 비율 계산
-    mouseX = (clientX - rect.left) * scaleX;
-}
-render.canvas.addEventListener('mousemove', handleMove);
-render.canvas.addEventListener('touchmove', (e) => { handleMove(e); e.preventDefault(); }, {passive: false});
+    mouseX = e.clientX - rect.left;
+});
 
-function handleDrop() {
+function updateTimer() {
     if (isGameOver) return;
+    const diff = Math.floor((Date.now() - startTime) / 1000);
+    document.getElementById('timer-val').innerText = `${String(Math.floor(diff / 60)).padStart(2, '0')}:${String(diff % 60).padStart(2, '0')}`;
+}
+setInterval(updateTimer, 1000);
+
+function updateNextUI() { document.getElementById('next-img').src = FRUITS_CONFIG[nextLevel - 1].img; }
+
+function createFruit(x, y, level, isMerged = false) {
+    const config = FRUITS_CONFIG[level - 1];
+    const fruit = Bodies.circle(x, y, config.radius, {
+        label: level.toString(), restitution: 0.7, friction: 0.02,
+        render: { sprite: { texture: config.img, xScale: config.scale, yScale: config.scale } }
+    });
+    if (isMerged) Body.setVelocity(fruit, { x: Matter.Common.random(-3, 3), y: -5 });
+    fruit.spawnTime = Date.now();
+    return fruit;
+}
+
+Events.on(render, 'afterRender', () => {
+    const context = render.context;
+    if (!isGameOver) {
+        const config = FRUITS_CONFIG[nextLevel - 1];
+        context.save();
+        context.globalAlpha = 0.4;
+        context.drawImage(document.getElementById('next-img'), mouseX - config.radius, 50 - config.radius, config.radius*2, config.radius*2);
+        context.beginPath(); context.setLineDash([5, 10]); context.moveTo(mouseX, 100); context.lineTo(mouseX, 780);
+        context.strokeStyle = '#5d4037'; context.lineWidth = 1; context.stroke(); context.restore();
+    }
+    const bodies = Composite.allBodies(engine.world);
+    context.save();
+    bodies.forEach(body => {
+        if (body.circleRadius && !body.isEffect) {
+            context.beginPath(); context.arc(body.position.x, body.position.y, body.circleRadius, 0, 2 * Math.PI);
+            context.setLineDash([5, 5]); context.lineWidth = 1.5; context.strokeStyle = 'rgba(93, 64, 55, 0.4)'; context.stroke();
+        }
+    });
+    context.restore();
+});
+
+window.addEventListener('mousedown', (e) => {
+    if (isGameOver || e.target.closest('.ui-box') || e.target.id === 'cheat-btn') return;
     if (bgm.paused && !isMuted) bgm.play();
     if (mouseX > 25 && mouseX < 425) {
         World.add(engine.world, createFruit(mouseX, 50, nextLevel));
         if(!isMuted) { soundDrop.currentTime = 0; soundDrop.play(); }
         nextLevel = Math.floor(Math.random() * 3) + 1; updateNextUI();
-    }
-}
-render.canvas.addEventListener('mousedown', handleDrop);
-render.canvas.addEventListener('touchstart', (e) => { handleDrop(); e.preventDefault(); }, {passive: false});
-
-// 나머지 물리 엔진 및 게임 로직 (기존 유지)
-function updateNextUI() { document.getElementById('next-img').src = FRUITS_CONFIG[nextLevel - 1].img; }
-function createFruit(x, y, level, isMerged = false) {
-    const c = FRUITS_CONFIG[level - 1];
-    const f = Bodies.circle(x, y, c.radius, {
-        label: level.toString(), restitution: 0.7, friction: 0.02,
-        render: { sprite: { texture: c.img, xScale: c.scale, yScale: c.scale } }
-    });
-    if (isMerged) Body.setVelocity(f, { x: Matter.Common.random(-3, 3), y: -5 });
-    f.spawnTime = Date.now();
-    return f;
-}
-
-Events.on(render, 'afterRender', () => {
-    const ctx = render.context;
-    if (!isGameOver) {
-        const c = FRUITS_CONFIG[nextLevel - 1];
-        ctx.save(); ctx.globalAlpha = 0.4;
-        ctx.drawImage(document.getElementById('next-img'), mouseX - c.radius, 50 - c.radius, c.radius*2, c.radius*2);
-        ctx.beginPath(); ctx.setLineDash([5, 10]); ctx.moveTo(mouseX, 100); ctx.lineTo(mouseX, 780);
-        ctx.strokeStyle = '#5d4037'; ctx.stroke(); ctx.restore();
     }
 });
 
@@ -216,48 +220,55 @@ Events.on(engine, 'collisionStart', (event) => {
             if (!target.isEffect && !target.isStatic) gameOverAction();
         }
         if (bodyA.label === bodyB.label && !bodyA.isStatic && !bodyB.isStatic) {
-            const lvl = parseInt(bodyA.label);
-            if (lvl < 10) {
+            const currentLevel = parseInt(bodyA.label);
+            if (currentLevel < 10) {
                 const midX = (bodyA.position.x + bodyB.position.x) / 2;
                 const midY = (bodyA.position.y + bodyB.position.y) / 2;
                 World.remove(engine.world, [bodyA, bodyB]);
-                World.add(engine.world, createFruit(midX, midY, lvl + 1, true));
+                World.add(engine.world, createFruit(midX, midY, currentLevel + 1, true));
                 if(!isMuted) { soundMerge.currentTime = 0; soundMerge.play(); }
-                score += lvl * 10; document.getElementById('score-val').innerText = score;
-                if (lvl + 1 === 10) setTimeout(() => alert('"유즈는 영원하다" GAME CLEAR!'), 500);
+                score += currentLevel * 10; document.getElementById('score-val').innerText = score;
+                if (currentLevel + 1 === 10) setTimeout(() => alert('"유즈는 영원하다" GAME CLEAR!'), 500);
             }
         }
     });
 });
 
 function gameOverAction() {
-    if (isGameOver) return; isGameOver = true; bgm.pause();
+    if (isGameOver) return;
+    isGameOver = true; bgm.pause();
     alert(`엠-마슷따... 허접이다냐 (최종 점수: ${score})`); location.reload();
 }
 
 Events.on(engine, 'afterUpdate', () => {
     if (isGameOver) return;
-    Composite.allBodies(engine.world).forEach(b => {
-        if (!b.isStatic && b.circleRadius && !b.isEffect) {
-            if (Date.now() - b.spawnTime > 2500 && (b.position.y - b.circleRadius) < 100) gameOverAction();
+    const bodies = Composite.allBodies(engine.world);
+    for (let body of bodies) {
+        if (!body.isStatic && body.circleRadius && !body.isEffect) {
+            if (Date.now() - body.spawnTime > 2500 && (body.position.y - body.circleRadius) < 100) gameOverAction();
         }
-    });
+    }
 });
 
-setInterval(() => {
-    if (isGameOver) return;
-    const diff = Math.floor((Date.now() - startTime) / 1000);
-    document.getElementById('timer-val').innerText = `${String(Math.floor(diff / 60)).padStart(2, '0')}:${String(diff % 60).padStart(2, '0')}`;
-}, 1000);
+// [치트키 버튼 이벤트]
+document.getElementById('cheat-btn').addEventListener('click', () => {
+    window.open('https://youtu.be/dQw4w9WgXcQ?si=A2zpYlDcX7yCO3z5', '_blank');
+});
 
-document.getElementById('cheat-btn').onclick = () => window.open('https://youtu.be/dQw4w9WgXcQ?si=A2zpYlDcX7yCO3z5', '_blank');
-document.getElementById('reset-btn').onclick = () => confirm("진짜루요?") && location.reload();
-document.getElementById('launch-btn').onclick = () => {
-    const c = FRUITS_CONFIG[Math.floor(Math.random() * 5)];
-    const e = Bodies.circle(-50, 400, c.radius, { isSensor: true, isEffect: true, render: { sprite: { texture: c.img, xScale: c.scale, yScale: c.scale } } });
-    World.add(engine.world, e); Body.setVelocity(e, { x: 15, y: -5 });
-    setTimeout(() => World.remove(engine.world, e), 2000);
-};
+document.getElementById('launch-btn').addEventListener('click', () => {
+    if (isGameOver) return;
+    if (!isMuted) { soundLaunch.currentTime = 0; soundLaunch.play(); }
+    const randomLevel = Math.floor(Math.random() * 5) + 1;
+    const config = FRUITS_CONFIG[randomLevel - 1];
+    const effectBall = Bodies.circle(-50, 400, config.radius, { isSensor: true, isEffect: true, render: { sprite: { texture: config.img, xScale: config.scale, yScale: config.scale } } });
+    World.add(engine.world, effectBall); Body.setVelocity(effectBall, { x: 15, y: -5 });
+    setTimeout(() => World.remove(engine.world, effectBall), 2000);
+});
+
+document.getElementById('bgm-vol').addEventListener('input', (e) => bgm.volume = e.target.value);
+document.getElementById('sfx-vol').addEventListener('input', (e) => { soundDrop.volume = e.target.value; soundMerge.volume = e.target.value; soundLaunch.volume = e.target.value; });
+document.getElementById('mute-chk').addEventListener('change', (e) => { isMuted = e.target.checked; isMuted ? bgm.pause() : (score > 0 && bgm.play()); });
+document.getElementById('reset-btn').addEventListener('click', () => { if (confirm("진짜루요? (현재 점수가 사라집니다)")) location.reload(); });
 
 updateNextUI();
 </script>
