@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Suika Game - Death Floor Fixed</title>
+    <title>Suika Game - Visual & Cooldown Update</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         body { 
@@ -13,9 +13,20 @@
         }
         #main-wrapper { display: flex; justify-content: center; align-items: flex-start; gap: 15px; max-width: 100%; }
         #left-sidebar, #right-sidebar { display: flex; flex-direction: column; gap: 10px; width: 155px; flex-shrink: 0; }
-        #center-area { display: flex; flex-direction: column; align-items: center; gap: 10px; flex-shrink: 0; }
+        
+        #center-area { 
+            display: flex; flex-direction: column; align-items: center; gap: 10px; flex-shrink: 0;
+            position: relative;
+            /* 통 양옆 배경 처리 */
+            background: linear-gradient(to right, 
+                rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.4) calc(50% - 225px), 
+                transparent calc(50% - 225px), transparent calc(50% + 225px), 
+                rgba(255, 255, 255, 0.4) calc(50% + 225px), rgba(255, 255, 255, 0.4) 100%);
+        }
+
         #game-container { position: relative; box-shadow: 0 10px 50px rgba(0,0,0,0.2); border-radius: 15px; background: #fff; cursor: none; touch-action: none; }
         canvas { display: block; border-radius: 15px; max-width: 100%; height: auto !important; }
+        
         #limit-line-guide { position: absolute; top: 12.5%; left: 0; width: 100%; height: 2px; border-top: 2px dashed #e53935; opacity: 0.6; pointer-events: none; }
         .ui-box { background: rgba(255, 255, 255, 0.9); padding: 12px; border-radius: 12px; border: 3px solid #5d4037; text-align: center; }
         #evolution-chart { text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 8px; }
@@ -51,7 +62,7 @@
         </div>
         <div id="center-area">
             <div id="game-container"><div id="limit-line-guide"></div></div>
-            <div id="game-warning">⚠️ 선을 넘거나 공이 밖으로 떨어지면 게임 오버!</div>
+            <div id="game-warning">⚠️ 선을 넘거나 공이 밖으로 떨어지면 패배!</div>
             <button id="cheat-btn">✨ 히든 치트키 ✨</button>
         </div>
         <div id="right-sidebar">
@@ -99,7 +110,6 @@ const render = Render.create({
 
 Render.run(render); Runner.run(Runner.create(), engine);
 
-// [버그 수정] 죽음의 바닥 판정 범위 확대 및 라벨 지정
 const deathFloor = Bodies.rectangle(225, 870, 4000, 60, { 
     isStatic: true, label: 'deathFloor', render: { fillStyle: 'transparent' } 
 });
@@ -112,6 +122,7 @@ World.add(engine.world, [
 ]);
 
 let score=0, nextLevel=Math.floor(Math.random()*3)+1, isGameOver=false, isMuted=false, startTime=Date.now(), mouseX=225;
+let isClickable = true; // [쿨타임 변수 추가]
 
 const handleMove = (e) => {
     const rect = render.canvas.getBoundingClientRect();
@@ -142,7 +153,8 @@ function createFruit(x, y, level, isMerged=false) {
 
 Events.on(render, 'afterRender', () => {
     const ctx = render.context;
-    if (!isGameOver) {
+    // 쿨타임 중이 아닐 때만 조준 가이드 표시
+    if (!isGameOver && isClickable) {
         const c = FRUITS_CONFIG[nextLevel-1];
         ctx.save(); ctx.globalAlpha = 0.4;
         ctx.drawImage(document.getElementById('next-img'), mouseX - c.radius, 50 - c.radius, c.radius*2, c.radius*2);
@@ -158,11 +170,16 @@ Events.on(render, 'afterRender', () => {
 });
 
 const dropFruit = () => {
-    if (isGameOver) return;
+    if (isGameOver || !isClickable) return; // 쿨타임 체크
     if (bgm.paused && !isMuted) bgm.play();
     if (mouseX > 25 && mouseX < 425) {
         World.add(engine.world, createFruit(mouseX, 50, nextLevel));
         if(!isMuted) { soundDrop.currentTime=0; soundDrop.play(); }
+        
+        // 쿨타임 시작
+        isClickable = false;
+        setTimeout(() => { isClickable = true; }, 1500); // 1.5초 쿨타임
+
         nextLevel = Math.floor(Math.random()*3)+1;
         document.getElementById('next-img').src = FRUITS_CONFIG[nextLevel-1].img;
     }
@@ -170,20 +187,13 @@ const dropFruit = () => {
 render.canvas.addEventListener('mousedown', dropFruit);
 render.canvas.addEventListener('touchstart', (e) => { e.preventDefault(); dropFruit(); }, {passive: false});
 
-// [충돌 판정 버그 수정] 바닥에 닿는 감지 로직 강화
 Events.on(engine, 'collisionStart', (event) => {
     event.pairs.forEach((pair) => {
         const { bodyA, bodyB } = pair;
-        
-        // 공이 죽음의 바닥에 닿았을 때
         if (bodyA.label === 'deathFloor' || bodyB.label === 'deathFloor') {
             const ball = bodyA.label === 'deathFloor' ? bodyB : bodyA;
-            // 효과용 공(isEffect)이 아니고 정적 물체가 아닐 때만 게임오버
-            if (!ball.isEffect && !ball.isStatic && ball.circleRadius) {
-                gameOverAction();
-            }
+            if (!ball.isEffect && !ball.isStatic && ball.circleRadius) gameOverAction();
         }
-
         if (bodyA.label === bodyB.label && !bodyA.isStatic && !bodyB.isStatic) {
             const currentLevel = parseInt(bodyA.label);
             if (currentLevel < 10) {
@@ -209,9 +219,7 @@ Events.on(engine, 'afterUpdate', () => {
     if (isGameOver) return;
     Composite.allBodies(engine.world).forEach(b => {
         if (!b.isStatic && b.circleRadius && !b.isEffect) {
-            // 상단 선 침범 판정
             if (Date.now() - b.spawnTime > 2500 && (b.position.y - b.circleRadius) < 100) gameOverAction();
-            // 화면 하단(y좌표)을 완전히 벗어났을 경우의 안전장치
             if (b.position.y > 850) gameOverAction();
         }
     });
