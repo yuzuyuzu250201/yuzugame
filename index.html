@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Suika Game - Ultimate Physics</title>
+    <title>Suika Game - Playtime & Launch Update</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         body { 
@@ -49,15 +49,21 @@
         
         #reset-btn {
             width: 100%; padding: 10px; cursor: pointer; background: #ff7043; color: white;
-            border: none; border-radius: 8px; font-weight: bold; transition: background 0.2s;
+            border: none; border-radius: 8px; font-weight: bold; transition: background 0.2s; margin-bottom: 8px;
         }
         #reset-btn:hover { background: #f4511e; }
+
+        /* 발사 버튼 스타일 */
+        #launch-btn {
+            width: 100%; padding: 10px; cursor: pointer; background: #4caf50; color: white;
+            border: none; border-radius: 8px; font-weight: bold; transition: background 0.2s;
+        }
+        #launch-btn:hover { background: #388e3c; }
 
         #next-preview { width: 70px; height: 70px; margin: 5px auto; border: 2px dashed #ccc; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 50%; }
         #next-img { max-width: 100%; max-height: 100%; object-fit: contain; }
         .label { font-size: 13px; color: #8d6e63; font-weight: bold; margin-bottom: 8px; }
-        #score-val { font-size: 24px; color: #5d4037; font-weight: bold; }
-        /* 경고문구 수정 */
+        #score-val, #timer-val { font-size: 24px; color: #5d4037; font-weight: bold; }
         #game-warning { font-weight: bold; color: #e53935; font-size: 13px; background: white; padding: 5px 15px; border-radius: 15px; border: 1px solid #e53935; }
     </style>
 </head>
@@ -91,9 +97,13 @@
     </div>
 
     <div id="right-sidebar">
+        <div class="ui-box"><div class="label">PLAY TIME</div><span id="timer-val">00:00</span></div>
         <div class="ui-box"><div class="label">SCORE</div><span id="score-val">0</span></div>
         <div class="ui-box"><div class="label">NEXT</div><div id="next-preview"><img id="next-img" src="" alt="Next"></div></div>
-        <div class="ui-box"><button id="reset-btn">GAME RESET</button></div>
+        <div class="ui-box">
+            <button id="reset-btn">GAME RESET</button>
+            <button id="launch-btn">🚀 발 사</button>
+        </div>
     </div>
 
 <script>
@@ -101,6 +111,7 @@ const bgm = new Audio('Anyone_in_2025.wav');
 bgm.loop = true;
 const soundDrop = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
 const soundMerge = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3');
+const soundLaunch = new Audio('https://assets.mixkit.co/active_storage/sfx/2816/2816-preview.mp3'); // 발사음
 
 const FRUITS_CONFIG = [
     { level: 1, radius: 20, img: '1.webp', scale: 0.18, name: 'Lv.1' },
@@ -112,7 +123,7 @@ const FRUITS_CONFIG = [
     { level: 7, radius: 88, img: '7.webp', scale: 0.82, name: 'Lv.7' },
     { level: 8, radius: 105, img: '8.webp', scale: 0.98, name: 'Lv.8' },
     { level: 9, radius: 125, img: '9.webp', scale: 1.15, name: 'Lv.9' },
-    { level: 10, radius: 155, img: '10.jpg', scale: 1.40, name: 'Final' }
+    { level: 10, radius: 155, img: '10.png', scale: 1.40, name: 'Final' }
 ];
 
 const evoContainer = document.getElementById('evolution-chart');
@@ -125,9 +136,7 @@ FRUITS_CONFIG.forEach((config) => {
 
 const { Engine, Render, Runner, World, Bodies, Events, Composite, Body } = Matter;
 const engine = Engine.create();
-
-// 1. 탄력성 물리 패치
-engine.world.gravity.y = 1.0; // 중력을 살짝 낮춰 체감 탄성 증가
+engine.world.gravity.y = 1.0; 
 
 const render = Render.create({
     element: document.getElementById('game-container'),
@@ -148,6 +157,18 @@ let score = 0;
 let nextLevel = Math.floor(Math.random() * 3) + 1;
 let isGameOver = false;
 let isMuted = false;
+let startTime = Date.now();
+
+// 타이머 업데이트 함수
+function updateTimer() {
+    if (isGameOver) return;
+    const now = Date.now();
+    const diff = Math.floor((now - startTime) / 1000);
+    const min = String(Math.floor(diff / 60)).padStart(2, '0');
+    const sec = String(diff % 60).padStart(2, '0');
+    document.getElementById('timer-val').innerText = `${min}:${sec}`;
+}
+setInterval(updateTimer, 1000);
 
 function updateNextUI() { document.getElementById('next-img').src = FRUITS_CONFIG[nextLevel - 1].img; }
 
@@ -155,11 +176,10 @@ function createFruit(x, y, level, isMerged = false) {
     const config = FRUITS_CONFIG[level - 1];
     const fruit = Bodies.circle(x, y, config.radius, {
         label: level.toString(),
-        restitution: 0.7, // 탄력 대폭 상향 (기존 0.4 -> 0.7)
-        friction: 0.02,  // 마찰을 낮춰 더 잘 굴러가게 함
+        restitution: 0.7,
+        friction: 0.02,
         render: { sprite: { texture: config.img, xScale: config.scale, yScale: config.scale } }
     });
-    // 합쳐질 때 더 통통 튀게 설정
     if (isMerged) Body.setVelocity(fruit, { x: Matter.Common.random(-3, 3), y: -5 });
     fruit.spawnTime = Date.now();
     return fruit;
@@ -203,8 +223,6 @@ Events.on(engine, 'collisionStart', (event) => {
             if (currentLevel < 10) {
                 const midX = (bodyA.position.x + bodyB.position.x) / 2;
                 const midY = (bodyA.position.y + bodyB.position.y) / 2;
-                
-                // 주변 밀어내기 파워 강화
                 const bodies = Composite.allBodies(engine.world);
                 bodies.forEach(body => {
                     const dist = Math.sqrt((body.position.x - midX)**2 + (body.position.y - midY)**2);
@@ -216,14 +234,11 @@ Events.on(engine, 'collisionStart', (event) => {
                         });
                     }
                 });
-
                 World.remove(engine.world, [bodyA, bodyB]);
                 World.add(engine.world, createFruit(midX, midY, currentLevel + 1, true));
                 if(!isMuted) { soundMerge.currentTime = 0; soundMerge.play(); }
                 score += currentLevel * 10;
                 document.getElementById('score-val').innerText = score;
-
-                // 3-2. 클리어 메시지 수정
                 if (currentLevel + 1 === 10) {
                     setTimeout(() => { alert('"유즈는 영원하다" GAME CLEAR!'); }, 500);
                 }
@@ -232,13 +247,11 @@ Events.on(engine, 'collisionStart', (event) => {
     });
 });
 
-// 2 & 3-1. 게임 오버 판정 및 메시지 수정
 Events.on(engine, 'afterUpdate', () => {
     if (isGameOver) return;
     const bodies = Composite.allBodies(engine.world);
     for (let body of bodies) {
-        if (!body.isStatic && body.circleRadius) {
-            // 가이드라인(100) 침범 체크
+        if (!body.isStatic && body.circleRadius && !body.isEffect) {
             if (Date.now() - body.spawnTime > 2500 && (body.position.y - body.circleRadius) < 100) {
                 isGameOver = true;
                 bgm.pause();
@@ -249,6 +262,28 @@ Events.on(engine, 'afterUpdate', () => {
     }
 });
 
+// [발사 버튼 기능 구현]
+document.getElementById('launch-btn').addEventListener('click', () => {
+    if (isGameOver) return;
+    if (!isMuted) { soundLaunch.currentTime = 0; soundLaunch.play(); }
+    
+    const randomLevel = Math.floor(Math.random() * 5) + 1;
+    const config = FRUITS_CONFIG[randomLevel - 1];
+    
+    // 이 공은 판정에 영향 없는 효과용 (isEffect 속성 부여)
+    const effectBall = Bodies.circle(-50, 400, config.radius, {
+        isSensor: true, // 다른 물체와 충돌 안 함
+        isEffect: true,
+        render: { sprite: { texture: config.img, xScale: config.scale, yScale: config.scale } }
+    });
+    
+    World.add(engine.world, effectBall);
+    Body.setVelocity(effectBall, { x: 15, y: -5 }); // 빠르게 날아감
+
+    // 화면 밖으로 나가면 삭제
+    setTimeout(() => { World.remove(engine.world, effectBall); }, 2000);
+});
+
 const bgmVolSlider = document.getElementById('bgm-vol');
 const sfxVolSlider = document.getElementById('sfx-vol');
 const muteChk = document.getElementById('mute-chk');
@@ -257,6 +292,7 @@ bgmVolSlider.addEventListener('input', (e) => { bgm.volume = e.target.value; });
 sfxVolSlider.addEventListener('input', (e) => { 
     soundDrop.volume = e.target.value; 
     soundMerge.volume = e.target.value; 
+    soundLaunch.volume = e.target.value;
 });
 muteChk.addEventListener('change', (e) => {
     isMuted = e.target.checked;
