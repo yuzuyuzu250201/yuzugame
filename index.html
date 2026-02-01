@@ -3,22 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DIY Suika Game</title>
+    <title>DIY Suika Game - Audio Control</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #fdf6e3; font-family: 'Pretendard', sans-serif; overflow: hidden; }
         #game-container { position: relative; }
         canvas { border: 10px solid #5d4037; border-radius: 15px; background: #fff; box-shadow: 0 10px 50px rgba(0,0,0,0.2); }
         
-        /* UI 스타일 */
+        /* UI 레이어 */
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; padding: 20px; box-sizing: border-box; }
-        .info-box { background: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 12px; border: 3px solid #5d4037; margin-bottom: 10px; pointer-events: auto; width: 90px; text-align: center; }
-        #next-preview { width: 40px; height: 40px; border-radius: 50%; margin: 10px auto; border: 2px dashed #ccc; transition: all 0.3s; }
+        .info-box { background: rgba(255, 255, 255, 0.9); padding: 12px; border-radius: 12px; border: 3px solid #5d4037; margin-bottom: 10px; pointer-events: auto; width: 90px; text-align: center; }
+        
+        /* 오디오 컨트롤러 스타일 */
+        #audio-controls { position: absolute; bottom: 20px; left: 20px; background: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 12px; border: 3px solid #5d4037; pointer-events: auto; width: 150px; }
+        .control-group { margin-bottom: 10px; }
+        .control-group label { font-size: 11px; font-weight: bold; color: #5d4037; display: block; margin-bottom: 3px; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        #mute-btn { width: 100%; padding: 5px; cursor: pointer; background: #5d4037; color: white; border: none; border-radius: 5px; font-weight: bold; }
+        #mute-btn.muted { background: #e53935; }
+
+        #next-preview { width: 40px; height: 40px; border-radius: 50%; margin: 10px auto; border: 2px dashed #ccc; }
         .label { font-size: 12px; color: #8d6e63; font-weight: bold; margin-bottom: 5px; }
         #score-val { font-size: 24px; color: #5d4037; font-weight: bold; }
-        
-        /* 안내 문구 및 출처 */
-        #footer { position: fixed; bottom: 10px; width: 100%; text-align: center; font-size: 12px; color: #8d6e63; pointer-events: none; }
         #limit-line { position: absolute; top: 100px; left: 0; width: 450px; height: 2px; border-top: 2px dashed #e53935; opacity: 0.5; }
     </style>
 </head>
@@ -26,6 +32,19 @@
 
 <div id="game-container">
     <div id="limit-line"></div>
+    
+    <div id="audio-controls">
+        <div class="control-group">
+            <label>BGM VOLUME</label>
+            <input type="range" id="bgm-vol" min="0" max="1" step="0.1" value="0.3">
+        </div>
+        <div class="control-group">
+            <label>SFX VOLUME</label>
+            <input type="range" id="sfx-vol" min="0" max="1" step="0.1" value="0.4">
+        </div>
+        <button id="mute-btn">MUTE OFF</button>
+    </div>
+
     <div id="ui-layer">
         <div class="info-box">
             <div class="label">SCORE</div>
@@ -38,25 +57,63 @@
     </div>
 </div>
 
-<div id="footer">
-    클릭하여 과일 투하! | BGM: Anyone in 2025? by しゃろう (Sharou)
-</div>
-
 <script>
-// --- 1. 초기 설정 및 사운드 ---
+// --- 1. 오디오 및 볼륨 로직 ---
 const bgm = new Audio('Anyone_in_2025.wav');
 bgm.loop = true;
-bgm.volume = 0.4;
 
 const soundDrop = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
 const soundMerge = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3');
 
+let isMuted = false;
+let currentBgmVol = 0.3;
+let currentSfxVol = 0.4;
+
+// 볼륨 초기화
+bgm.volume = currentBgmVol;
+soundDrop.volume = currentSfxVol;
+soundMerge.volume = currentSfxVol;
+
+// 이벤트 리스너: BGM 볼륨 조절
+document.getElementById('bgm-vol').addEventListener('input', (e) => {
+    currentBgmVol = e.target.value;
+    if (!isMuted) bgm.volume = currentBgmVol;
+});
+
+// 이벤트 리스너: 효과음 볼륨 조절
+document.getElementById('sfx-vol').addEventListener('input', (e) => {
+    currentSfxVol = e.target.value;
+    if (!isMuted) {
+        soundDrop.volume = currentSfxVol;
+        soundMerge.volume = currentSfxVol;
+    }
+});
+
+// 음소거 기능
+document.getElementById('mute-btn').addEventListener('click', (e) => {
+    isMuted = !isMuted;
+    if (isMuted) {
+        bgm.volume = 0;
+        soundDrop.volume = 0;
+        soundMerge.volume = 0;
+        e.target.innerText = "MUTE ON";
+        e.target.classList.add('muted');
+    } else {
+        bgm.volume = currentBgmVol;
+        soundDrop.volume = currentSfxVol;
+        soundMerge.volume = currentSfxVol;
+        e.target.innerText = "MUTE OFF";
+        e.target.classList.remove('muted');
+    }
+});
+
 function playSfx(audio) {
+    if (isMuted) return;
     audio.currentTime = 0;
     audio.play().catch(() => {}); 
 }
 
-// 과일 데이터 정의 (이미지 적용 시 render.sprite 사용 가능)
+// --- 2. 게임 설정 (기존과 동일) ---
 const FRUITS_CONFIG = [
     { level: 1, radius: 15, color: '#ffadad' },
     { level: 2, radius: 25, color: '#ffd6a5' },
@@ -67,13 +124,11 @@ const FRUITS_CONFIG = [
     { level: 7, radius: 85, color: '#bdb2ff' },
     { level: 8, radius: 100, color: '#ffc6ff' },
     { level: 9, radius: 120, color: '#fffffc' },
-    { level: 10, radius: 150, color: '#4ade80' } // 수박
+    { level: 10, radius: 150, color: '#4ade80' }
 ];
 
-// --- 2. 물리 엔진 초기화 ---
-const { Engine, Render, Runner, World, Bodies, Events, Composite } = Matter;
+const { Engine, Render, Runner, World, Bodies, Events } = Matter;
 const engine = Engine.create();
-const world = engine.world;
 const render = Render.create({
     element: document.getElementById('game-container'),
     engine: engine,
@@ -83,24 +138,19 @@ const render = Render.create({
 Render.run(render);
 Runner.run(Runner.create(), engine);
 
-// 벽 생성
-const wallOptions = { isStatic: true, render: { fillStyle: '#5d4037' } };
-World.add(world, [
-    Bodies.rectangle(225, 690, 450, 20, wallOptions), // 바닥
-    Bodies.rectangle(5, 350, 10, 700, wallOptions),  // 좌
-    Bodies.rectangle(445, 350, 10, 700, wallOptions) // 우
+World.add(engine.world, [
+    Bodies.rectangle(225, 690, 450, 20, { isStatic: true, render: { fillStyle: '#5d4037' } }),
+    Bodies.rectangle(5, 350, 10, 700, { isStatic: true, render: { fillStyle: '#5d4037' } }),
+    Bodies.rectangle(445, 350, 10, 700, { isStatic: true, render: { fillStyle: '#5d4037' } })
 ]);
 
 let score = 0;
 let nextLevel = Math.floor(Math.random() * 3) + 1;
 let isGameOver = false;
 
-// --- 3. 게임 로직 ---
-
 function updateNextUI() {
     const config = FRUITS_CONFIG[nextLevel - 1];
-    const preview = document.getElementById('next-preview');
-    preview.style.backgroundColor = config.color;
+    document.getElementById('next-preview').style.backgroundColor = config.color;
 }
 
 function createFruit(x, y, level) {
@@ -108,50 +158,38 @@ function createFruit(x, y, level) {
     return Bodies.circle(x, y, config.radius, {
         label: level.toString(),
         restitution: 0.3,
-        friction: 0.1,
-        render: { 
-            fillStyle: config.color,
-            // 이미지로 바꾸려면 아래 주석 해제:
-            // sprite: { texture: `./fruit_${level}.png` }
-        }
+        render: { fillStyle: config.color }
     });
 }
 
-// 마우스 클릭 시 과일 투하
 window.addEventListener('mousedown', (e) => {
+    // UI 컨트롤 영역 클릭 시 과일 투하 방지
+    if (e.target.closest('#audio-controls')) return;
     if (isGameOver) return;
     
-    // 첫 클릭 시 사운드 재생 시작
-    if (bgm.paused) bgm.play();
+    if (bgm.paused && !isMuted) bgm.play();
 
     const canvasRect = render.canvas.getBoundingClientRect();
     const x = e.clientX - canvasRect.left;
     
     if (x > 30 && x < 420) {
-        const dropFruit = createFruit(x, 50, nextLevel);
-        World.add(world, dropFruit);
+        World.add(engine.world, createFruit(x, 50, nextLevel));
         playSfx(soundDrop);
-        
         nextLevel = Math.floor(Math.random() * 3) + 1;
         updateNextUI();
     }
 });
 
-// 충돌 감지 및 진화
 Events.on(engine, 'collisionStart', (event) => {
     event.pairs.forEach((pair) => {
         const { bodyA, bodyB } = pair;
-        
         if (bodyA.label === bodyB.label && !bodyA.isStatic && !bodyB.isStatic) {
             const currentLevel = parseInt(bodyA.label);
-            
             if (currentLevel < 10) {
                 const midX = (bodyA.position.x + bodyB.position.x) / 2;
                 const midY = (bodyA.position.y + bodyB.position.y) / 2;
-                
-                World.remove(world, [bodyA, bodyB]);
-                World.add(world, createFruit(midX, midY, currentLevel + 1));
-                
+                World.remove(engine.world, [bodyA, bodyB]);
+                World.add(engine.world, createFruit(midX, midY, currentLevel + 1));
                 playSfx(soundMerge);
                 score += currentLevel * 10;
                 document.getElementById('score-val').innerText = score;
@@ -160,15 +198,13 @@ Events.on(engine, 'collisionStart', (event) => {
     });
 });
 
-// 게임 오버 체크 (위쪽 선을 넘었는지)
 Events.on(engine, 'afterUpdate', () => {
     if (isGameOver) return;
-    const bodies = world.bodies;
-    bodies.forEach(body => {
+    engine.world.bodies.forEach(body => {
         if (!body.isStatic && body.position.y < 100 && body.velocity.y < 0.1) {
             isGameOver = true;
             bgm.pause();
-            alert(`GAME OVER! 최종 점수: ${score}점`);
+            alert(`GAME OVER! ${score}점`);
             location.reload();
         }
     });
