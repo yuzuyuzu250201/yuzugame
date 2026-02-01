@@ -3,26 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Custom Suika Game - Border Update</title>
+    <title>Custom Suika Game - Evolution Guide</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         body { 
             margin: 0; display: flex; justify-content: center; align-items: center; 
-            min-height: 100vh; background: #fdf6e3; font-family: 'Pretendard', sans-serif; gap: 40px; 
+            min-height: 100vh; background: #fdf6e3; font-family: 'Pretendard', sans-serif; gap: 30px; 
         }
-        #left-sidebar, #right-sidebar { display: flex; flex-direction: column; gap: 20px; }
+        #left-sidebar, #right-sidebar { display: flex; flex-direction: column; gap: 15px; }
         #game-container { position: relative; box-shadow: 0 10px 50px rgba(0,0,0,0.2); border-radius: 15px; overflow: hidden; }
         canvas { border: 10px solid #5d4037; background: #fff; display: block; }
-        .ui-box { background: rgba(255, 255, 255, 0.9); padding: 20px; border-radius: 12px; border: 3px solid #5d4037; width: 140px; text-align: center; }
-        .control-group { margin-bottom: 15px; text-align: left; }
-        .control-group label { font-size: 11px; font-weight: bold; color: #5d4037; display: block; margin-bottom: 5px; }
+        
+        .ui-box { background: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 12px; border: 3px solid #5d4037; width: 160px; text-align: center; }
+        
+        /* 진화표 스타일 */
+        #evolution-chart { text-align: left; }
+        .evo-item { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; font-size: 12px; font-weight: bold; color: #5d4037; }
+        .evo-img { width: 25px; height: 25px; border-radius: 50%; border: 1px solid #5d4037; object-fit: cover; }
+        .evo-arrow { color: #8d6e63; font-size: 10px; }
+
+        .control-group { margin-bottom: 10px; text-align: left; }
+        .control-group label { font-size: 10px; font-weight: bold; color: #5d4037; display: block; margin-bottom: 3px; }
         input[type="range"] { width: 100%; cursor: pointer; }
-        #mute-btn { width: 100%; padding: 10px; cursor: pointer; background: #5d4037; color: white; border: none; border-radius: 8px; font-weight: bold; }
+        #mute-btn { width: 100%; padding: 8px; cursor: pointer; background: #5d4037; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 12px; }
         #mute-btn.muted { background: #e53935; }
-        #next-preview { width: 80px; height: 80px; margin: 15px auto; border: 2px dashed #ccc; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 50%; }
+        
+        #next-preview { width: 70px; height: 70px; margin: 10px auto; border: 2px dashed #ccc; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 50%; }
         #next-img { max-width: 100%; max-height: 100%; object-fit: contain; }
-        .label { font-size: 14px; color: #8d6e63; font-weight: bold; }
-        #score-val { font-size: 28px; color: #5d4037; font-weight: bold; }
+        
+        .label { font-size: 13px; color: #8d6e63; font-weight: bold; margin-bottom: 10px; }
+        #score-val { font-size: 24px; color: #5d4037; font-weight: bold; }
         #limit-line { position: absolute; top: 100px; left: 0; width: 100%; height: 2px; border-top: 2px dashed #e53935; opacity: 0.5; pointer-events: none; }
     </style>
 </head>
@@ -30,11 +40,15 @@
 
     <div id="left-sidebar">
         <div class="ui-box">
-            <div class="label" style="margin-bottom: 15px;">AUDIO SETTINGS</div>
-            <div class="control-group"><label>BGM VOL</label><input type="range" id="bgm-vol" min="0" max="1" step="0.1" value="0.3"></div>
-            <div class="control-group"><label>SFX VOL</label><input type="range" id="sfx-vol" min="0" max="1" step="0.1" value="0.4"></div>
+            <div class="label">AUDIO</div>
+            <div class="control-group"><label>BGM</label><input type="range" id="bgm-vol" min="0" max="1" step="0.1" value="0.3"></div>
+            <div class="control-group"><label>SFX</label><input type="range" id="sfx-vol" min="0" max="1" step="0.1" value="0.4"></div>
             <button id="mute-btn">MUTE OFF</button>
         </div>
+
+        <div class="ui-box" id="evolution-chart">
+            <div class="label" style="text-align: center;">EVOLUTION</div>
+            </div>
     </div>
 
     <div id="game-container"><div id="limit-line"></div></div>
@@ -45,33 +59,44 @@
     </div>
 
 <script>
+// --- [1. 기초 설정 및 데이터] ---
 const bgm = new Audio('Anyone_in_2025.wav');
 bgm.loop = true;
 const soundDrop = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
 const soundMerge = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3');
 
-// 반지름(radius)과 이미지 스케일을 미세 조정했습니다.
 const FRUITS_CONFIG = [
-    { level: 1, radius: 20, img: '1.webp', scale: 0.18 },
-    { level: 2, radius: 28, img: '2.webp', scale: 0.25 },
-    { level: 3, radius: 38, img: '3.webp', scale: 0.35 },
-    { level: 4, radius: 48, img: '4.webp', scale: 0.45 },
-    { level: 5, radius: 58, img: '5.webp', scale: 0.55 },
-    { level: 6, radius: 72, img: '6.webp', scale: 0.68 },
-    { level: 7, radius: 88, img: '7.webp', scale: 0.82 },
-    { level: 8, radius: 105, img: '8.webp', scale: 0.98 },
-    { level: 9, radius: 125, img: '9.webp', scale: 1.15 },
-    { level: 10, radius: 155, img: '10.jpg', scale: 1.40 }
+    { level: 1, radius: 20, img: '1.webp', scale: 0.18, name: 'Lv.1' },
+    { level: 2, radius: 28, img: '2.webp', scale: 0.25, name: 'Lv.2' },
+    { level: 3, radius: 38, img: '3.webp', scale: 0.35, name: 'Lv.3' },
+    { level: 4, radius: 48, img: '4.webp', scale: 0.45, name: 'Lv.4' },
+    { level: 5, radius: 58, img: '5.webp', scale: 0.55, name: 'Lv.5' },
+    { level: 6, radius: 72, img: '6.webp', scale: 0.68, name: 'Lv.6' },
+    { level: 7, radius: 88, img: '7.webp', scale: 0.82, name: 'Lv.7' },
+    { level: 8, radius: 105, img: '8.webp', scale: 0.98, name: 'Lv.8' },
+    { level: 9, radius: 125, img: '9.webp', scale: 1.15, name: 'Lv.9' },
+    { level: 10, radius: 155, img: '10.jpg', scale: 1.40, name: 'Final' }
 ];
 
-let isMuted = false;
-let currentBgmVol = 0.3;
-let currentSfxVol = 0.4;
-bgm.volume = currentBgmVol;
-soundDrop.volume = currentSfxVol;
-soundMerge.volume = currentSfxVol;
+// 진화표 자동 생성 로직
+const evoContainer = document.getElementById('evolution-chart');
+FRUITS_CONFIG.forEach((config, index) => {
+    const item = document.createElement('div');
+    item.className = 'evo-item';
+    item.innerHTML = `
+        <img src="${config.img}" class="evo-img">
+        <span>${config.name}</span>
+        ${index < 9 ? '<span class="evo-arrow">▶</span>' : ''}
+    `;
+    evoContainer.appendChild(item);
+});
 
-// 볼륨/음소거 로직은 유지
+// --- [2. 물리 및 오디오 제어] ---
+let isMuted = false;
+let currentBgmVol = 0.3; let currentSfxVol = 0.4;
+bgm.volume = currentBgmVol;
+soundDrop.volume = currentSfxVol; soundMerge.volume = currentSfxVol;
+
 document.getElementById('bgm-vol').addEventListener('input', (e) => { currentBgmVol = e.target.value; if (!isMuted) bgm.volume = currentBgmVol; });
 document.getElementById('sfx-vol').addEventListener('input', (e) => { currentSfxVol = e.target.value; if (!isMuted) { soundDrop.volume = currentSfxVol; soundMerge.volume = currentSfxVol; } });
 document.getElementById('mute-btn').addEventListener('click', (e) => {
@@ -97,45 +122,33 @@ World.add(engine.world, [
     Bodies.rectangle(445, 350, 10, 700, { isStatic: true, render: { fillStyle: '#5d4037' } })
 ]);
 
-let score = 0;
-let nextLevel = Math.floor(Math.random() * 3) + 1;
-let isGameOver = false;
+let score = 0; let nextLevel = Math.floor(Math.random() * 3) + 1; let isGameOver = false;
 
-function updateNextUI() {
-    document.getElementById('next-img').src = FRUITS_CONFIG[nextLevel - 1].img;
-}
+function updateNextUI() { document.getElementById('next-img').src = FRUITS_CONFIG[nextLevel - 1].img; }
 
 function createFruit(x, y, level) {
     const config = FRUITS_CONFIG[level - 1];
     return Bodies.circle(x, y, config.radius, {
         label: level.toString(),
         restitution: 0.3,
-        render: { 
-            sprite: { 
-                texture: config.img,
-                xScale: config.scale,
-                yScale: config.scale 
-            } 
-        }
+        render: { sprite: { texture: config.img, xScale: config.scale, yScale: config.scale } }
     });
 }
 
-// [핵심] 캐릭터마다 점선 테두리를 그리는 코드
+// 점선 테두리 그리기
 Events.on(render, 'afterRender', () => {
     const context = render.context;
     const bodies = Matter.Composite.allBodies(engine.world);
-
     context.save();
     bodies.forEach(body => {
         if (body.label !== "Rectangle Body" && !body.isStatic) {
             const { x, y } = body.position;
             const radius = body.circleRadius;
-
             context.beginPath();
             context.arc(x, y, radius, 0, 2 * Math.PI);
-            context.setLineDash([5, 5]); // 점선 패턴 [실선길이, 공백길이]
+            context.setLineDash([5, 5]);
             context.lineWidth = 2;
-            context.strokeStyle = '#5d4037'; // 캐릭터와 잘 어울리는 갈색 테두리
+            context.strokeStyle = '#5d4037';
             context.stroke();
             context.closePath();
         }
