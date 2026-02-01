@@ -3,41 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Suika Game - UI & Bug Fix</title>
+    <title>Suika Game - Clean UI</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
-        /* 1. 전체 레이아웃: UI가 치솟지 않도록 수직 중앙 정렬 유지 */
         body { 
             margin: 0; 
             display: flex; 
             justify-content: center; 
-            align-items: center; /* 수직 중앙 정렬 */
+            align-items: center; 
             min-height: 100vh; 
             background: #fdf6e3; 
             font-family: 'Pretendard', sans-serif; 
             gap: 20px; 
-            overflow: hidden; /* 스크롤 방지 */
+            overflow: hidden; 
         }
 
-        /* 사이드바 위치 고정 */
         #left-sidebar, #right-sidebar { 
             display: flex; 
             flex-direction: column; 
             gap: 15px; 
-            justify-content: center; /* 내부 요소 중앙 정렬 */
-            height: 700px; /* 게임 화면 높이와 맞춤 */
+            height: 700px;
+            justify-content: flex-start;
+            margin-top: 20px;
         }
         
+        /* 중앙 게임 영역 구성을 세로로 변경 */
+        #center-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
         #game-container { 
             position: relative; 
             box-shadow: 0 10px 50px rgba(0,0,0,0.2); 
             border-radius: 15px; 
             overflow: hidden; 
-            height: 700px;
         }
         canvas { border: 10px solid #5d4037; background: #fff; display: block; }
         
-        /* UI 박스 디자인 */
+        /* 하단 경고 문구 스타일 */
+        #game-warning {
+            font-weight: bold;
+            color: #e53935;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 8px 20px;
+            border-radius: 20px;
+            border: 2px solid #5d4037;
+            font-size: 14px;
+        }
+
         .ui-box { 
             background: rgba(255, 255, 255, 0.9); 
             padding: 15px; 
@@ -47,14 +63,7 @@
             text-align: center; 
         }
         
-        /* 진화표: 10단계까지 모두 보이도록 간격 최적화 */
-        #evolution-chart { 
-            text-align: left; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 2px; 
-            padding: 10px;
-        }
+        #evolution-chart { text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 10px; }
         .evo-item { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: bold; color: #5d4037; }
         .evo-img { width: 24px; height: 24px; border-radius: 50%; border: 1px solid #5d4037; object-fit: cover; background: #fff; }
         .evo-arrow { color: #8d6e63; font-size: 8px; margin-left: 7px; }
@@ -63,17 +72,11 @@
         .control-group label { font-size: 10px; font-weight: bold; color: #5d4037; display: block; }
         input[type="range"] { width: 100%; cursor: pointer; }
         
-        #next-preview { 
-            width: 70px; height: 70px; margin: 5px auto; 
-            border: 2px dashed #ccc; display: flex; 
-            align-items: center; justify-content: center; 
-            overflow: hidden; border-radius: 50%; 
-        }
+        #next-preview { width: 70px; height: 70px; margin: 5px auto; border: 2px dashed #ccc; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 50%; }
         #next-img { max-width: 100%; max-height: 100%; object-fit: contain; }
         
         .label { font-size: 13px; color: #8d6e63; font-weight: bold; margin-bottom: 5px; }
         #score-val { font-size: 24px; color: #5d4037; font-weight: bold; }
-        #limit-line { position: absolute; top: 80px; left: 0; width: 100%; height: 2px; border-top: 2px dashed #e53935; opacity: 0.5; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -86,10 +89,13 @@
         </div>
         <div class="ui-box" id="evolution-chart">
             <div class="label" style="text-align: center;">EVOLUTION</div>
-            </div>
+        </div>
     </div>
 
-    <div id="game-container"><div id="limit-line"></div></div>
+    <div id="center-area">
+        <div id="game-container"></div>
+        <div id="game-warning">⚠️ 공이 넘치면 게임 오버가 됩니다! 노력해보셈</div>
+    </div>
 
     <div id="right-sidebar">
         <div class="ui-box"><div class="label">SCORE</div><span id="score-val">0</span></div>
@@ -97,7 +103,12 @@
     </div>
 
 <script>
-// --- [1. 데이터 설정: 10번 공 확장자 주의] ---
+// [정보] 배경음악 파일: Anyone_in_2025.wav 사용
+const bgm = new Audio('Anyone_in_2025.wav');
+bgm.loop = true;
+const soundDrop = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
+const soundMerge = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3');
+
 const FRUITS_CONFIG = [
     { level: 1, radius: 20, img: '1.webp', scale: 0.18, name: 'Lv.1' },
     { level: 2, radius: 28, img: '2.webp', scale: 0.25, name: 'Lv.2' },
@@ -108,15 +119,9 @@ const FRUITS_CONFIG = [
     { level: 7, radius: 88, img: '7.webp', scale: 0.82, name: 'Lv.7' },
     { level: 8, radius: 105, img: '8.webp', scale: 0.98, name: 'Lv.8' },
     { level: 9, radius: 125, img: '9.webp', scale: 1.15, name: 'Lv.9' },
-    { level: 10, radius: 155, img: '10.png', scale: 1.40, name: 'Final' }
+    { level: 10, radius: 155, img: '10.jpg', scale: 1.40, name: 'Final' }
 ];
 
-const bgm = new Audio('Anyone_in_2025.wav'); //
-bgm.loop = true;
-const soundDrop = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
-const soundMerge = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3');
-
-// 진화표 생성 (10번까지 확실히 추가)
 const evoContainer = document.getElementById('evolution-chart');
 FRUITS_CONFIG.forEach((config, index) => {
     const item = document.createElement('div');
@@ -125,7 +130,6 @@ FRUITS_CONFIG.forEach((config, index) => {
     evoContainer.appendChild(item);
 });
 
-// --- [2. 엔진 및 게임 로직] ---
 const { Engine, Render, Runner, World, Bodies, Events, Composite } = Matter;
 const engine = Engine.create();
 const render = Render.create({
@@ -137,7 +141,6 @@ const render = Render.create({
 Render.run(render);
 Runner.run(Runner.create(), engine);
 
-// 벽 생성
 World.add(engine.world, [
     Bodies.rectangle(225, 695, 450, 30, { isStatic: true, render: { fillStyle: '#5d4037' } }),
     Bodies.rectangle(5, 350, 10, 700, { isStatic: true, render: { fillStyle: '#5d4037' } }),
@@ -162,7 +165,6 @@ function createFruit(x, y, level) {
     return fruit;
 }
 
-// 점선 테두리
 Events.on(render, 'afterRender', () => {
     const context = render.context;
     const bodies = Composite.allBodies(engine.world);
@@ -211,23 +213,22 @@ Events.on(engine, 'collisionStart', (event) => {
     });
 });
 
-// 개선된 게임오버 판정
 Events.on(engine, 'afterUpdate', () => {
     if (isGameOver) return;
     const bodies = Composite.allBodies(engine.world);
     for (let body of bodies) {
         if (!body.isStatic && body.circleRadius) {
-            if (Date.now() - body.spawnTime > 1500 && body.position.y < 60) {
+            // 통 밖으로 완전히 나가는 판정 (y 좌표 50 미만)
+            if (Date.now() - body.spawnTime > 2000 && body.position.y < 50) {
                 isGameOver = true;
                 bgm.pause();
-                alert(`게임 오버! 최종 점수: ${score}점`);
+                alert(`통이 꽉 찼습니다! 최종 점수: ${score}점`);
                 location.reload();
             }
         }
     }
 });
 
-// 볼륨 조절
 document.getElementById('bgm-vol').addEventListener('input', (e) => bgm.volume = e.target.value);
 document.getElementById('sfx-vol').addEventListener('input', (e) => {
     soundDrop.volume = e.target.value;
