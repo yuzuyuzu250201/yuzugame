@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Suika Game - UI & Physics Fixed</title>
+    <title>Suika Game - Ultimate Physics</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         body { 
@@ -24,11 +24,9 @@
             box-shadow: 0 10px 50px rgba(0,0,0,0.2); 
             border-radius: 15px; 
             background: #fff;
-            padding-top: 0; /* 내부 캔버스에서 여백 조정 */
         }
         canvas { display: block; border-radius: 15px; }
         
-        /* 통 상단 가이드 점선 */
         #limit-line-guide {
             position: absolute; top: 100px; left: 0; width: 100%; height: 2px;
             border-top: 2px dashed #e53935; opacity: 0.6; pointer-events: none;
@@ -59,7 +57,8 @@
         #next-img { max-width: 100%; max-height: 100%; object-fit: contain; }
         .label { font-size: 13px; color: #8d6e63; font-weight: bold; margin-bottom: 8px; }
         #score-val { font-size: 24px; color: #5d4037; font-weight: bold; }
-        #game-warning { font-weight: bold; color: #e53935; font-size: 13px; }
+        /* 경고문구 수정 */
+        #game-warning { font-weight: bold; color: #e53935; font-size: 13px; background: white; padding: 5px 15px; border-radius: 15px; border: 1px solid #e53935; }
     </style>
 </head>
 <body>
@@ -88,7 +87,7 @@
         <div id="game-container">
             <div id="limit-line-guide"></div>
         </div>
-        <div id="game-warning">⚠️ 저 선을 넘으면 게임 오버임! 노력해보셈</div>
+        <div id="game-warning">⚠️ 선 밖에 공이 2.5초 이상 걸쳐있으면 게임 오버!</div>
     </div>
 
     <div id="right-sidebar">
@@ -113,7 +112,7 @@ const FRUITS_CONFIG = [
     { level: 7, radius: 88, img: '7.webp', scale: 0.82, name: 'Lv.7' },
     { level: 8, radius: 105, img: '8.webp', scale: 0.98, name: 'Lv.8' },
     { level: 9, radius: 125, img: '9.webp', scale: 1.15, name: 'Lv.9' },
-    { level: 10, radius: 155, img: '10.jpg', scale: 1.40, name: 'Final' }
+    { level: 10, radius: 155, img: '10.png', scale: 1.40, name: 'Final' }
 ];
 
 const evoContainer = document.getElementById('evolution-chart');
@@ -126,7 +125,9 @@ FRUITS_CONFIG.forEach((config) => {
 
 const { Engine, Render, Runner, World, Bodies, Events, Composite, Body } = Matter;
 const engine = Engine.create();
-engine.world.gravity.y = 1.2; 
+
+// 1. 탄력성 물리 패치
+engine.world.gravity.y = 1.0; // 중력을 살짝 낮춰 체감 탄성 증가
 
 const render = Render.create({
     element: document.getElementById('game-container'),
@@ -137,7 +138,6 @@ const render = Render.create({
 Render.run(render);
 Runner.run(Runner.create(), engine);
 
-// 통 가이드 (y=100 아래로 벽 설치)
 World.add(engine.world, [
     Bodies.rectangle(225, 795, 450, 20, { isStatic: true, render: { fillStyle: '#5d4037' } }),
     Bodies.rectangle(5, 450, 10, 700, { isStatic: true, render: { fillStyle: '#5d4037' } }),
@@ -155,16 +155,16 @@ function createFruit(x, y, level, isMerged = false) {
     const config = FRUITS_CONFIG[level - 1];
     const fruit = Bodies.circle(x, y, config.radius, {
         label: level.toString(),
-        restitution: 0.4,
-        friction: 0.1,
+        restitution: 0.7, // 탄력 대폭 상향 (기존 0.4 -> 0.7)
+        friction: 0.02,  // 마찰을 낮춰 더 잘 굴러가게 함
         render: { sprite: { texture: config.img, xScale: config.scale, yScale: config.scale } }
     });
-    if (isMerged) Body.setVelocity(fruit, { x: Matter.Common.random(-2, 2), y: -3 });
+    // 합쳐질 때 더 통통 튀게 설정
+    if (isMerged) Body.setVelocity(fruit, { x: Matter.Common.random(-3, 3), y: -5 });
     fruit.spawnTime = Date.now();
     return fruit;
 }
 
-// 점선 테두리 그리기
 Events.on(render, 'afterRender', () => {
     const context = render.context;
     const bodies = Composite.allBodies(engine.world);
@@ -204,12 +204,12 @@ Events.on(engine, 'collisionStart', (event) => {
                 const midX = (bodyA.position.x + bodyB.position.x) / 2;
                 const midY = (bodyA.position.y + bodyB.position.y) / 2;
                 
-                // 주변 밀어내기 물리 효과
+                // 주변 밀어내기 파워 강화
                 const bodies = Composite.allBodies(engine.world);
                 bodies.forEach(body => {
                     const dist = Math.sqrt((body.position.x - midX)**2 + (body.position.y - midY)**2);
-                    if (dist < 120) {
-                        const force = (120 - dist) * 0.0004;
+                    if (dist < 150) {
+                        const force = (150 - dist) * 0.0006;
                         Body.applyForce(body, body.position, { 
                             x: (body.position.x - midX) * force, 
                             y: (body.position.y - midY) * force 
@@ -222,29 +222,33 @@ Events.on(engine, 'collisionStart', (event) => {
                 if(!isMuted) { soundMerge.currentTime = 0; soundMerge.play(); }
                 score += currentLevel * 10;
                 document.getElementById('score-val').innerText = score;
+
+                // 3-2. 클리어 메시지 수정
+                if (currentLevel + 1 === 10) {
+                    setTimeout(() => { alert('"유즈는 영원하다" GAME CLEAR!'); }, 500);
+                }
             }
         }
     });
 });
 
-// [수정된 게임 오버 판정] : 가이드 라인(y=100)을 넘었을 때만
+// 2 & 3-1. 게임 오버 판정 및 메시지 수정
 Events.on(engine, 'afterUpdate', () => {
     if (isGameOver) return;
     const bodies = Composite.allBodies(engine.world);
     for (let body of bodies) {
         if (!body.isStatic && body.circleRadius) {
-            // 생성된 지 2.5초가 지났고, 공의 윗부분이 가이드 라인(100)보다 높이 있을 때
+            // 가이드라인(100) 침범 체크
             if (Date.now() - body.spawnTime > 2500 && (body.position.y - body.circleRadius) < 100) {
                 isGameOver = true;
                 bgm.pause();
-                alert(`공이 넘쳤습니다! 최종 점수: ${score}점`);
+                alert(`엠-마슷따... 허접이다냐 (최종 점수: ${score})`);
                 location.reload();
             }
         }
     }
 });
 
-// 사운드 제어 로직 복구
 const bgmVolSlider = document.getElementById('bgm-vol');
 const sfxVolSlider = document.getElementById('sfx-vol');
 const muteChk = document.getElementById('mute-chk');
