@@ -3,35 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Suika Game - Transparent Bounds</title>
+    <title>Suika Game - Death Floor Fixed</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         body { 
             margin: 0; display: flex; justify-content: center; align-items: center; 
             min-height: 100vh; background: #fdf6e3; font-family: 'Pretendard', sans-serif; 
-            overflow: hidden; padding: 10px; box-sizing: border-box;
+            overflow-x: hidden; padding: 10px; box-sizing: border-box;
         }
-        #main-wrapper { display: flex; justify-content: center; align-items: flex-start; gap: 15px; max-width: 100%; z-index: 10; }
+        #main-wrapper { display: flex; justify-content: center; align-items: flex-start; gap: 15px; max-width: 100%; }
         #left-sidebar, #right-sidebar { display: flex; flex-direction: column; gap: 10px; width: 155px; flex-shrink: 0; }
         #center-area { display: flex; flex-direction: column; align-items: center; gap: 10px; flex-shrink: 0; }
-        
-        /* [시각 개선] 게임 컨테이너를 반투명하게 하여 밖으로 나간 공이 보이게 설정 */
-        #game-container { 
-            position: relative; 
-            box-shadow: 0 10px 50px rgba(0,0,0,0.1); 
-            border-radius: 15px; 
-            background: rgba(255, 255, 255, 0.3); /* 반투명 배경 */
-            cursor: none; 
-            touch-action: none;
-        }
-        /* 실제 게임판(통 내부)만 흰색으로 처리 */
-        canvas { 
-            display: block; 
-            border-radius: 15px; 
-            max-width: 100%; 
-            height: auto !important; 
-        }
-
+        #game-container { position: relative; box-shadow: 0 10px 50px rgba(0,0,0,0.2); border-radius: 15px; background: #fff; cursor: none; touch-action: none; }
+        canvas { display: block; border-radius: 15px; max-width: 100%; height: auto !important; }
         #limit-line-guide { position: absolute; top: 12.5%; left: 0; width: 100%; height: 2px; border-top: 2px dashed #e53935; opacity: 0.6; pointer-events: none; }
         .ui-box { background: rgba(255, 255, 255, 0.9); padding: 12px; border-radius: 12px; border: 3px solid #5d4037; text-align: center; }
         #evolution-chart { text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 8px; }
@@ -50,7 +34,6 @@
         .label { font-size: 11px; color: #8d6e63; font-weight: bold; margin-bottom: 5px; }
         #score-val, #timer-val { font-size: 18px; color: #5d4037; font-weight: bold; }
         #game-warning { font-weight: bold; color: #e53935; font-size: 11px; background: white; padding: 5px 10px; border-radius: 15px; border: 1px solid #e53935; text-align: center; }
-        
         @media (max-width: 800px) { #main-wrapper { transform: scale(0.85); } }
         @media (max-width: 600px) { #main-wrapper { transform: scale(0.65); } body { align-items: flex-start; padding-top: 20px; } }
     </style>
@@ -68,14 +51,14 @@
         </div>
         <div id="center-area">
             <div id="game-container"><div id="limit-line-guide"></div></div>
-            <div id="game-warning">⚠️ 선을 넘거나 공이 밖으로 떨어지면 패배!</div>
+            <div id="game-warning">⚠️ 선을 넘거나 공이 밖으로 떨어지면 게임 오버!</div>
             <button id="cheat-btn">✨ 히든 치트키 ✨</button>
         </div>
         <div id="right-sidebar">
             <div class="ui-box"><div class="label">TIME</div><span id="timer-val">00:00</span></div>
             <div class="ui-box"><div class="label">SCORE</div><span id="score-val">0</span></div>
             <div class="ui-box"><div class="label">NEXT</div><div id="next-preview"><img id="next-img" src="" alt="Next"></div></div>
-            <div class="ui-box"><button id="reset-btn">RESET</button><button id="launch-btn">🚀 LAUNCH</button></div>
+            <div class="ui-box"><button id="reset-btn">RESET</button><button id="launch-btn">🚀 발 사</button></div>
         </div>
     </div>
 
@@ -95,7 +78,7 @@ const FRUITS_CONFIG = [
     { level: 7, radius: 88, img: '7.webp', scale: 0.82, name: 'Lv.7' },
     { level: 8, radius: 105, img: '8.webp', scale: 0.98, name: 'Lv.8' },
     { level: 9, radius: 125, img: '9.webp', scale: 1.15, name: 'Lv.9' },
-    { level: 10, radius: 155, img: '10.jpg', scale: 1.40, name: 'Final' }
+    { level: 10, radius: 155, img: '10.png', scale: 1.40, name: 'Final' }
 ];
 
 const evoContainer = document.getElementById('evolution-chart');
@@ -116,14 +99,13 @@ const render = Render.create({
 
 Render.run(render); Runner.run(Runner.create(), engine);
 
-// [죽음의 바닥] 투명하지만 확실하게 존재
+// [버그 수정] 죽음의 바닥 판정 범위 확대 및 라벨 지정
 const deathFloor = Bodies.rectangle(225, 870, 4000, 60, { 
     isStatic: true, label: 'deathFloor', render: { fillStyle: 'transparent' } 
 });
 
 World.add(engine.world, [
     deathFloor,
-    // [통 시각화] 흰색 배경을 캔버스 그리기 로직에서 처리
     Bodies.rectangle(225, 795, 430, 20, { isStatic: true, label: 'safeWall', render: { fillStyle: '#5d4037' } }),
     Bodies.rectangle(5, 450, 10, 700, { isStatic: true, label: 'safeWall', render: { fillStyle: '#5d4037' } }),
     Bodies.rectangle(445, 450, 10, 700, { isStatic: true, label: 'safeWall', render: { fillStyle: '#5d4037' } })
@@ -160,13 +142,6 @@ function createFruit(x, y, level, isMerged=false) {
 
 Events.on(render, 'afterRender', () => {
     const ctx = render.context;
-    
-    // [시각 개선] 통 내부를 흰색으로 채우기
-    ctx.globalCompositeOperation = 'destination-over';
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(10, 100, 430, 700);
-    ctx.globalCompositeOperation = 'source-over';
-
     if (!isGameOver) {
         const c = FRUITS_CONFIG[nextLevel-1];
         ctx.save(); ctx.globalAlpha = 0.4;
@@ -174,7 +149,6 @@ Events.on(render, 'afterRender', () => {
         ctx.beginPath(); ctx.setLineDash([5, 10]); ctx.moveTo(mouseX, 100); ctx.lineTo(mouseX, 780);
         ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
     }
-
     Composite.allBodies(engine.world).forEach(b => {
         if (b.circleRadius && !b.isEffect) {
             ctx.beginPath(); ctx.arc(b.position.x, b.position.y, b.circleRadius, 0, 2*Math.PI);
@@ -196,13 +170,20 @@ const dropFruit = () => {
 render.canvas.addEventListener('mousedown', dropFruit);
 render.canvas.addEventListener('touchstart', (e) => { e.preventDefault(); dropFruit(); }, {passive: false});
 
+// [충돌 판정 버그 수정] 바닥에 닿는 감지 로직 강화
 Events.on(engine, 'collisionStart', (event) => {
     event.pairs.forEach((pair) => {
         const { bodyA, bodyB } = pair;
+        
+        // 공이 죽음의 바닥에 닿았을 때
         if (bodyA.label === 'deathFloor' || bodyB.label === 'deathFloor') {
             const ball = bodyA.label === 'deathFloor' ? bodyB : bodyA;
-            if (!ball.isEffect && !ball.isStatic && ball.circleRadius) gameOverAction();
+            // 효과용 공(isEffect)이 아니고 정적 물체가 아닐 때만 게임오버
+            if (!ball.isEffect && !ball.isStatic && ball.circleRadius) {
+                gameOverAction();
+            }
         }
+
         if (bodyA.label === bodyB.label && !bodyA.isStatic && !bodyB.isStatic) {
             const currentLevel = parseInt(bodyA.label);
             if (currentLevel < 10) {
@@ -228,7 +209,9 @@ Events.on(engine, 'afterUpdate', () => {
     if (isGameOver) return;
     Composite.allBodies(engine.world).forEach(b => {
         if (!b.isStatic && b.circleRadius && !b.isEffect) {
+            // 상단 선 침범 판정
             if (Date.now() - b.spawnTime > 2500 && (b.position.y - b.circleRadius) < 100) gameOverAction();
+            // 화면 하단(y좌표)을 완전히 벗어났을 경우의 안전장치
             if (b.position.y > 850) gameOverAction();
         }
     });
