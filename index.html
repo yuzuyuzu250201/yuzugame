@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Suika Game - Playtime & Launch Update</title>
+    <title>Suika Game - Advanced Mechanics</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         body { 
@@ -24,6 +24,7 @@
             box-shadow: 0 10px 50px rgba(0,0,0,0.2); 
             border-radius: 15px; 
             background: #fff;
+            cursor: none; /* 드롭 가이드를 위해 기본 커서 숨김 */
         }
         canvas { display: block; border-radius: 15px; }
         
@@ -53,7 +54,6 @@
         }
         #reset-btn:hover { background: #f4511e; }
 
-        /* 발사 버튼 스타일 */
         #launch-btn {
             width: 100%; padding: 10px; cursor: pointer; background: #4caf50; color: white;
             border: none; border-radius: 8px; font-weight: bold; transition: background 0.2s;
@@ -93,7 +93,7 @@
         <div id="game-container">
             <div id="limit-line-guide"></div>
         </div>
-        <div id="game-warning">⚠️ 선 밖에 공이 2.5초 이상 걸쳐있으면 게임 오버!</div>
+        <div id="game-warning">⚠️ 선을 넘거나 공이 밖으로 떨어지면 게임 오버!</div>
     </div>
 
     <div id="right-sidebar">
@@ -111,7 +111,7 @@ const bgm = new Audio('Anyone_in_2025.wav');
 bgm.loop = true;
 const soundDrop = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
 const soundMerge = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3');
-const soundLaunch = new Audio('https://assets.mixkit.co/active_storage/sfx/2816/2816-preview.mp3'); // 발사음
+const soundLaunch = new Audio('https://assets.mixkit.co/active_storage/sfx/2816/2816-preview.mp3');
 
 const FRUITS_CONFIG = [
     { level: 1, radius: 20, img: '1.webp', scale: 0.18, name: 'Lv.1' },
@@ -147,10 +147,16 @@ const render = Render.create({
 Render.run(render);
 Runner.run(Runner.create(), engine);
 
+// [게임 오버 구역 설정] 통 밖 바닥 판정용
+const deathFloor = Bodies.rectangle(225, 820, 2000, 20, { 
+    isStatic: true, label: 'deathFloor', render: { fillStyle: 'transparent' } 
+});
+
 World.add(engine.world, [
-    Bodies.rectangle(225, 795, 450, 20, { isStatic: true, render: { fillStyle: '#5d4037' } }),
-    Bodies.rectangle(5, 450, 10, 700, { isStatic: true, render: { fillStyle: '#5d4037' } }),
-    Bodies.rectangle(445, 450, 10, 700, { isStatic: true, render: { fillStyle: '#5d4037' } })
+    deathFloor,
+    Bodies.rectangle(225, 795, 430, 20, { isStatic: true, label: 'safeWall', render: { fillStyle: '#5d4037' } }),
+    Bodies.rectangle(5, 450, 10, 700, { isStatic: true, label: 'safeWall', render: { fillStyle: '#5d4037' } }),
+    Bodies.rectangle(445, 450, 10, 700, { isStatic: true, label: 'safeWall', render: { fillStyle: '#5d4037' } })
 ]);
 
 let score = 0;
@@ -158,15 +164,18 @@ let nextLevel = Math.floor(Math.random() * 3) + 1;
 let isGameOver = false;
 let isMuted = false;
 let startTime = Date.now();
+let mouseX = 225;
 
-// 타이머 업데이트 함수
+// 마우스 위치 추적
+render.canvas.addEventListener('mousemove', (e) => {
+    const rect = render.canvas.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+});
+
 function updateTimer() {
     if (isGameOver) return;
-    const now = Date.now();
-    const diff = Math.floor((now - startTime) / 1000);
-    const min = String(Math.floor(diff / 60)).padStart(2, '0');
-    const sec = String(diff % 60).padStart(2, '0');
-    document.getElementById('timer-val').innerText = `${min}:${sec}`;
+    const diff = Math.floor((Date.now() - startTime) / 1000);
+    document.getElementById('timer-val').innerText = `${String(Math.floor(diff / 60)).padStart(2, '0')}:${String(diff % 60).padStart(2, '0')}`;
 }
 setInterval(updateTimer, 1000);
 
@@ -185,12 +194,29 @@ function createFruit(x, y, level, isMerged = false) {
     return fruit;
 }
 
+// 예상 드롭 위치 및 테두리 그리기
 Events.on(render, 'afterRender', () => {
     const context = render.context;
+    if (!isGameOver) {
+        const config = FRUITS_CONFIG[nextLevel - 1];
+        context.save();
+        context.globalAlpha = 0.4;
+        context.drawImage(document.getElementById('next-img'), mouseX - config.radius, 50 - config.radius, config.radius*2, config.radius*2);
+        // 수직 가이드 라인
+        context.beginPath();
+        context.setLineDash([5, 10]);
+        context.moveTo(mouseX, 100);
+        context.lineTo(mouseX, 780);
+        context.strokeStyle = '#5d4037';
+        context.lineWidth = 1;
+        context.stroke();
+        context.restore();
+    }
+
     const bodies = Composite.allBodies(engine.world);
     context.save();
     bodies.forEach(body => {
-        if (body.circleRadius) {
+        if (body.circleRadius && !body.isEffect) {
             context.beginPath();
             context.arc(body.position.x, body.position.y, body.circleRadius, 0, 2 * Math.PI);
             context.setLineDash([5, 5]);
@@ -205,10 +231,8 @@ Events.on(render, 'afterRender', () => {
 window.addEventListener('mousedown', (e) => {
     if (isGameOver || e.target.closest('.ui-box')) return;
     if (bgm.paused && !isMuted) bgm.play();
-    const canvasRect = render.canvas.getBoundingClientRect();
-    const x = e.clientX - canvasRect.left;
-    if (x > 25 && x < 425) {
-        World.add(engine.world, createFruit(x, 50, nextLevel));
+    if (mouseX > 25 && mouseX < 425) {
+        World.add(engine.world, createFruit(mouseX, 50, nextLevel));
         if(!isMuted) { soundDrop.currentTime = 0; soundDrop.play(); }
         nextLevel = Math.floor(Math.random() * 3) + 1;
         updateNextUI();
@@ -218,34 +242,38 @@ window.addEventListener('mousedown', (e) => {
 Events.on(engine, 'collisionStart', (event) => {
     event.pairs.forEach((pair) => {
         const { bodyA, bodyB } = pair;
+        
+        // [죽음의 바닥 착지 판정]
+        if (bodyA.label === 'deathFloor' || bodyB.label === 'deathFloor') {
+            const target = bodyA.label === 'deathFloor' ? bodyB : bodyA;
+            if (!target.isEffect && !target.isStatic) {
+                gameOverAction();
+            }
+        }
+
         if (bodyA.label === bodyB.label && !bodyA.isStatic && !bodyB.isStatic) {
             const currentLevel = parseInt(bodyA.label);
             if (currentLevel < 10) {
                 const midX = (bodyA.position.x + bodyB.position.x) / 2;
                 const midY = (bodyA.position.y + bodyB.position.y) / 2;
-                const bodies = Composite.allBodies(engine.world);
-                bodies.forEach(body => {
-                    const dist = Math.sqrt((body.position.x - midX)**2 + (body.position.y - midY)**2);
-                    if (dist < 150) {
-                        const force = (150 - dist) * 0.0006;
-                        Body.applyForce(body, body.position, { 
-                            x: (body.position.x - midX) * force, 
-                            y: (body.position.y - midY) * force 
-                        });
-                    }
-                });
                 World.remove(engine.world, [bodyA, bodyB]);
                 World.add(engine.world, createFruit(midX, midY, currentLevel + 1, true));
                 if(!isMuted) { soundMerge.currentTime = 0; soundMerge.play(); }
                 score += currentLevel * 10;
                 document.getElementById('score-val').innerText = score;
-                if (currentLevel + 1 === 10) {
-                    setTimeout(() => { alert('"유즈는 영원하다" GAME CLEAR!'); }, 500);
-                }
+                if (currentLevel + 1 === 10) setTimeout(() => { alert('"유즈는 영원하다" GAME CLEAR!'); }, 500);
             }
         }
     });
 });
+
+function gameOverAction() {
+    if (isGameOver) return;
+    isGameOver = true;
+    bgm.pause();
+    alert(`엠-마슷따... 허접이다냐 (최종 점수: ${score})`);
+    location.reload();
+}
 
 Events.on(engine, 'afterUpdate', () => {
     if (isGameOver) return;
@@ -253,53 +281,35 @@ Events.on(engine, 'afterUpdate', () => {
     for (let body of bodies) {
         if (!body.isStatic && body.circleRadius && !body.isEffect) {
             if (Date.now() - body.spawnTime > 2500 && (body.position.y - body.circleRadius) < 100) {
-                isGameOver = true;
-                bgm.pause();
-                alert(`엠-마슷따... 허접이다냐 (최종 점수: ${score})`);
-                location.reload();
+                gameOverAction();
             }
         }
     }
 });
 
-// [발사 버튼 기능 구현]
+// 발사 버튼
 document.getElementById('launch-btn').addEventListener('click', () => {
     if (isGameOver) return;
     if (!isMuted) { soundLaunch.currentTime = 0; soundLaunch.play(); }
-    
     const randomLevel = Math.floor(Math.random() * 5) + 1;
     const config = FRUITS_CONFIG[randomLevel - 1];
-    
-    // 이 공은 판정에 영향 없는 효과용 (isEffect 속성 부여)
     const effectBall = Bodies.circle(-50, 400, config.radius, {
-        isSensor: true, // 다른 물체와 충돌 안 함
-        isEffect: true,
+        isSensor: true, isEffect: true,
         render: { sprite: { texture: config.img, xScale: config.scale, yScale: config.scale } }
     });
-    
     World.add(engine.world, effectBall);
-    Body.setVelocity(effectBall, { x: 15, y: -5 }); // 빠르게 날아감
-
-    // 화면 밖으로 나가면 삭제
+    Body.setVelocity(effectBall, { x: 15, y: -5 });
     setTimeout(() => { World.remove(engine.world, effectBall); }, 2000);
 });
 
-const bgmVolSlider = document.getElementById('bgm-vol');
-const sfxVolSlider = document.getElementById('sfx-vol');
-const muteChk = document.getElementById('mute-chk');
-
-bgmVolSlider.addEventListener('input', (e) => { bgm.volume = e.target.value; });
-sfxVolSlider.addEventListener('input', (e) => { 
-    soundDrop.volume = e.target.value; 
-    soundMerge.volume = e.target.value; 
-    soundLaunch.volume = e.target.value;
+document.getElementById('bgm-vol').addEventListener('input', (e) => { bgm.volume = e.target.value; });
+document.getElementById('sfx-vol').addEventListener('input', (e) => { 
+    soundDrop.volume = e.target.value; soundMerge.volume = e.target.value; soundLaunch.volume = e.target.value;
 });
-muteChk.addEventListener('change', (e) => {
+document.getElementById('mute-chk').addEventListener('change', (e) => {
     isMuted = e.target.checked;
-    if (isMuted) { bgm.pause(); } 
-    else { if (score > 0) bgm.play(); }
+    isMuted ? bgm.pause() : (score > 0 && bgm.play());
 });
-
 document.getElementById('reset-btn').addEventListener('click', () => {
     if (confirm("진짜루요? (현재 점수가 사라집니다)")) location.reload();
 });
