@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Suika Game - Side UI Layout</title>
+    <title>Custom Suika Game</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
-        /* 화면 전체 레이아웃 설정 */
         body { 
             margin: 0; 
             display: flex; 
@@ -15,17 +14,15 @@
             min-height: 100vh; 
             background: #fdf6e3; 
             font-family: 'Pretendard', sans-serif; 
-            gap: 40px; /* 게임창과 사이드 UI 사이의 간격 */
+            gap: 40px; 
         }
 
-        /* 왼쪽 오디오 컨트롤 박스 */
-        #left-sidebar {
+        #left-sidebar, #right-sidebar {
             display: flex;
             flex-direction: column;
             gap: 20px;
         }
 
-        /* 중앙 게임 컨테이너 */
         #game-container { 
             position: relative; 
             box-shadow: 0 10px 50px rgba(0,0,0,0.2);
@@ -38,14 +35,6 @@
             display: block;
         }
 
-        /* 오른쪽 정보 박스 */
-        #right-sidebar {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        /* 공통 UI 박스 스타일 */
         .ui-box { 
             background: rgba(255, 255, 255, 0.9); 
             padding: 20px; 
@@ -67,13 +56,18 @@
         #mute-btn.muted { background: #e53935; }
 
         #next-preview { 
-            width: 50px; height: 50px; border-radius: 50%; 
-            margin: 15px auto; border: 2px dashed #ccc; 
+            width: 80px; height: 80px; 
+            margin: 15px auto; 
+            border: 2px dashed #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
+        #next-img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
         .label { font-size: 14px; color: #8d6e63; font-weight: bold; }
         #score-val { font-size: 28px; color: #5d4037; font-weight: bold; }
         
-        /* 데드라인 표시선 */
         #limit-line { 
             position: absolute; top: 100px; left: 0; 
             width: 100%; height: 2px; 
@@ -86,7 +80,7 @@
 
     <div id="left-sidebar">
         <div class="ui-box">
-            <div class="label" style="margin-bottom: 15px;">AUDIO</div>
+            <div class="label" style="margin-bottom: 15px;">AUDIO SETTINGS</div>
             <div class="control-group">
                 <label>BGM VOL</label>
                 <input type="range" id="bgm-vol" min="0" max="1" step="0.1" value="0.3">
@@ -109,39 +103,48 @@
             <span id="score-val">0</span>
         </div>
         <div class="ui-box">
-            <div class="label">NEXT</div>
-            <div id="next-preview"></div>
+            <div class="label">NEXT CHARACTER</div>
+            <div id="next-preview">
+                <img id="next-img" src="" alt="Next">
+            </div>
         </div>
     </div>
 
 <script>
-// --- [스크립트 로직 시작] ---
-const bgm = new Audio('Anyone_in_2025.wav');
+// --- [1. 사운드 및 이미지 설정] ---
+const bgm = new Audio('Anyone_in_2025.wav'); //
 bgm.loop = true;
+bgm.volume = 0.3;
 
 const soundDrop = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
 const soundMerge = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3');
+
+// 단계별 이미지 및 크기 설정
+const FRUITS_CONFIG = [
+    { level: 1, radius: 25, img: '1.webp' },
+    { level: 2, radius: 35, img: '2.webp' },
+    { level: 3, radius: 45, img: '3.webp' },
+    { level: 4, radius: 55, img: '4.webp' },
+    { level: 5, radius: 65, img: '5.webp' },
+    { level: 6, radius: 80, img: '6.webp' },
+    { level: 7, radius: 95, img: '7.webp' },
+    { level: 8, radius: 110, img: '8.webp' },
+    { level: 9, radius: 130, img: '9.webp' },
+    { level: 10, radius: 160, img: '10.jpg' }
+];
 
 let isMuted = false;
 let currentBgmVol = 0.3;
 let currentSfxVol = 0.4;
 
-// 오디오 초기 세팅
-bgm.volume = currentBgmVol;
-soundDrop.volume = currentSfxVol;
-soundMerge.volume = currentSfxVol;
-
-// 볼륨 컨트롤 리스너
+// 오디오 리스너 생략 (이전과 동일)
 document.getElementById('bgm-vol').addEventListener('input', (e) => {
     currentBgmVol = e.target.value;
     if (!isMuted) bgm.volume = currentBgmVol;
 });
 document.getElementById('sfx-vol').addEventListener('input', (e) => {
     currentSfxVol = e.target.value;
-    if (!isMuted) {
-        soundDrop.volume = currentSfxVol;
-        soundMerge.volume = currentSfxVol;
-    }
+    if (!isMuted) { soundDrop.volume = currentSfxVol; soundMerge.volume = currentSfxVol; }
 });
 document.getElementById('mute-btn').addEventListener('click', (e) => {
     isMuted = !isMuted;
@@ -160,20 +163,7 @@ function playSfx(audio) {
     audio.play().catch(() => {}); 
 }
 
-// --- Matter.js 엔진 설정 ---
-const FRUITS_CONFIG = [
-    { level: 1, radius: 15, color: '#ffadad' },
-    { level: 2, radius: 25, color: '#ffd6a5' },
-    { level: 3, radius: 35, color: '#fdffb6' },
-    { level: 4, radius: 45, color: '#caffbf' },
-    { level: 5, radius: 55, color: '#9bf6ff' },
-    { level: 6, radius: 70, color: '#a0c4ff' },
-    { level: 7, radius: 85, color: '#bdb2ff' },
-    { level: 8, radius: 100, color: '#ffc6ff' },
-    { level: 9, radius: 120, color: '#fffffc' },
-    { level: 10, radius: 150, color: '#4ade80' }
-];
-
+// --- [2. Matter.js 물리 엔진] ---
 const { Engine, Render, Runner, World, Bodies, Events } = Matter;
 const engine = Engine.create();
 const render = Render.create({
@@ -197,30 +187,33 @@ let isGameOver = false;
 
 function updateNextUI() {
     const config = FRUITS_CONFIG[nextLevel - 1];
-    document.getElementById('next-preview').style.backgroundColor = config.color;
+    document.getElementById('next-img').src = config.img;
 }
 
 function createFruit(x, y, level) {
     const config = FRUITS_CONFIG[level - 1];
+    // 원형 판정은 그대로 유지하되 겉모습만 이미지를 씌움
     return Bodies.circle(x, y, config.radius, {
         label: level.toString(),
         restitution: 0.3,
-        render: { fillStyle: config.color }
+        render: { 
+            sprite: { 
+                texture: config.img,
+                // 이미지 크기를 radius에 맞춰 자동 조절 (원래 이미지 크기에 따라 조정 필요할 수 있음)
+                xScale: (config.radius * 2) / 250, 
+                yScale: (config.radius * 2) / 250 
+            } 
+        }
     });
 }
 
-// 클릭 투하
 window.addEventListener('mousedown', (e) => {
-    if (isGameOver) return;
-    // 오디오 설정창 클릭 시 무시
-    if (e.target.closest('#left-sidebar') || e.target.closest('#right-sidebar')) return;
-    
+    if (isGameOver || e.target.closest('#left-sidebar') || e.target.closest('#right-sidebar')) return;
     if (bgm.paused && !isMuted) bgm.play();
 
     const canvasRect = render.canvas.getBoundingClientRect();
     const x = e.clientX - canvasRect.left;
     
-    // 캔버스 범위 안에서만 작동
     if (x > 0 && x < 450) {
         World.add(engine.world, createFruit(x, 50, nextLevel));
         playSfx(soundDrop);
@@ -242,6 +235,7 @@ Events.on(engine, 'collisionStart', (event) => {
                 playSfx(soundMerge);
                 score += currentLevel * 10;
                 document.getElementById('score-val').innerText = score;
+                if (currentLevel + 1 === 10) setTimeout(() => alert("CLEAR!"), 500);
             }
         }
     });
