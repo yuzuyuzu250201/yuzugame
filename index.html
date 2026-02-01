@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Suika Game - Countdown Update</title>
+    <title>Suika Game - Settings Persistence</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         body { 
@@ -83,11 +83,12 @@
             <div class="ui-box"><div class="label">TIME</div><span id="timer-val">00:00</span></div>
             <div class="ui-box"><div class="label">SCORE</div><span id="score-val">0</span></div>
             <div class="ui-box"><div class="label">NEXT</div><div id="next-preview"><img id="next-img" src="" alt="Next"></div></div>
-            <div class="ui-box"><button id="reset-btn">RESET</button><button id="launch-btn">🚀 발 사</button></div>
+            <div class="ui-box"><button id="reset-btn">RESET</button><button id="launch-btn">🚀 발 싸</button></div>
         </div>
     </div>
 
 <script>
+// --- Ticker 시스템 ---
 const TRIVIA_LIST = [
     "알고 계셨나요? 레몬 한 개에는 레몬 한 개의 비타민이 들어있습니다.",
     "개복치의 학명은 \"몰라 몰라\" 입니다.",
@@ -134,11 +135,49 @@ function startTicker() {
 }
 startTicker();
 
+// --- 오디오 및 설정 저장 로직 ---
 const bgm = new Audio('Anyone_in_2025.wav'); bgm.loop = true;
 const soundDrop = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
 const soundMerge = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3');
 const soundLaunch = new Audio('https://assets.mixkit.co/active_storage/sfx/2816/2816-preview.mp3');
 
+// [업데이트] 설정 불러오기 및 적용
+function initAudioSettings() {
+    const savedBgm = localStorage.getItem('suika-bgm-vol') || 0.3;
+    const savedSfx = localStorage.getItem('suika-sfx-vol') || 0.4;
+    const savedMute = localStorage.getItem('suika-mute') === 'true';
+
+    bgm.volume = savedBgm;
+    soundDrop.volume = savedSfx;
+    soundMerge.volume = savedSfx;
+    soundLaunch.volume = savedSfx;
+    
+    document.getElementById('bgm-vol').value = savedBgm;
+    document.getElementById('sfx-vol').value = savedSfx;
+    document.getElementById('mute-chk').checked = savedMute;
+    
+    return savedMute;
+}
+
+let isMuted = initAudioSettings();
+
+// 볼륨 이벤트 리스너 (저장 기능 포함)
+document.getElementById('bgm-vol').addEventListener('input', (e) => {
+    bgm.volume = e.target.value;
+    localStorage.setItem('suika-bgm-vol', e.target.value);
+});
+document.getElementById('sfx-vol').addEventListener('input', (e) => {
+    const val = e.target.value;
+    soundDrop.volume = val; soundMerge.volume = val; soundLaunch.volume = val;
+    localStorage.setItem('suika-sfx-vol', val);
+});
+document.getElementById('mute-chk').addEventListener('change', (e) => {
+    isMuted = e.target.checked;
+    localStorage.setItem('suika-mute', isMuted);
+    isMuted ? bgm.pause() : (score > 0 && bgm.play());
+});
+
+// --- 기존 Matter.js 로직 ---
 const FRUITS_CONFIG = [
     { level: 1, radius: 20, img: '1.webp', scale: 0.18, name: 'Lv.1' },
     { level: 2, radius: 28, img: '2.webp', scale: 0.25, name: 'Lv.2' },
@@ -178,7 +217,7 @@ World.add(engine.world, [
     Bodies.rectangle(445, 450, 10, 700, { isStatic: true, label: 'safeWall', render: { fillStyle: '#5d4037' } })
 ]);
 
-let score=0, nextLevel=Math.floor(Math.random()*3)+1, isGameOver=false, isMuted=false, startTime=Date.now(), mouseX=225;
+let score=0, nextLevel=Math.floor(Math.random()*3)+1, isGameOver=false, startTime=Date.now(), mouseX=225;
 let isClickable = true;
 
 const handleMove = (e) => {
@@ -205,7 +244,7 @@ function createFruit(x, y, level, isMerged=false) {
     });
     if (isMerged) Body.setVelocity(f, { x: Matter.Common.random(-3, 3), y: -5 });
     f.spawnTime = Date.now();
-    f.overLineStartTime = null; // 선을 넘은 시간 기록용
+    f.overLineStartTime = null;
     return f;
 }
 
@@ -226,11 +265,8 @@ Events.on(render, 'afterRender', () => {
     
     Composite.allBodies(engine.world).forEach(b => {
         if (b.circleRadius && !b.isEffect) {
-            // 점선 효과
             ctx.beginPath(); ctx.arc(b.position.x, b.position.y, b.circleRadius, 0, 2*Math.PI);
             ctx.setLineDash([5,5]); ctx.lineWidth=1.5; ctx.strokeStyle='rgba(93,64,55,0.4)'; ctx.stroke();
-            
-            // [신규] 카운트다운 텍스트 렌더링
             if (b.overLineStartTime) {
                 const elapsed = (Date.now() - b.overLineStartTime) / 1000;
                 const remaining = Math.max(0, (2.5 - elapsed)).toFixed(1);
@@ -260,12 +296,10 @@ render.canvas.addEventListener('touchstart', (e) => { e.preventDefault(); dropFr
 Events.on(engine, 'collisionStart', (event) => {
     event.pairs.forEach((pair) => {
         const { bodyA, bodyB } = pair;
-        // 바닥 충돌은 즉시 게임 오버
         if (bodyA.label === 'deathFloor' || bodyB.label === 'deathFloor') {
             const ball = bodyA.label === 'deathFloor' ? bodyB : bodyA;
             if (!ball.isEffect && !ball.isStatic && ball.circleRadius) gameOverAction();
         }
-        // 과일 합성
         if (bodyA.label === bodyB.label && !bodyA.isStatic && !bodyB.isStatic) {
             const currentLevel = parseInt(bodyA.label);
             if (currentLevel < 10) {
@@ -291,21 +325,12 @@ Events.on(engine, 'afterUpdate', () => {
     if (isGameOver) return;
     Composite.allBodies(engine.world).forEach(b => {
         if (!b.isStatic && b.circleRadius && !b.isEffect) {
-            // [버그 수정] 선을 넘었는지 체크 (y=100 기준)
             const isOverLine = (b.position.y - b.circleRadius) < 100;
             const timeSinceSpawn = Date.now() - b.spawnTime;
-
-            if (isOverLine && timeSinceSpawn > 1000) { // 생성 직후는 제외
+            if (isOverLine && timeSinceSpawn > 1000) {
                 if (!b.overLineStartTime) b.overLineStartTime = Date.now();
-                
-                // 2.5초 경과 체크
                 if (Date.now() - b.overLineStartTime > 2500) gameOverAction();
-            } else {
-                // 선 아래로 내려가면 카운트다운 초기화
-                b.overLineStartTime = null;
-            }
-
-            // 화면 밖으로 완전히 나갔을 때
+            } else { b.overLineStartTime = null; }
             if (b.position.y > 850) gameOverAction();
         }
     });
@@ -330,12 +355,8 @@ document.getElementById('launch-btn').addEventListener('click', () => {
     setTimeout(() => World.remove(engine.world, eb), 2000);
 });
 
-document.getElementById('bgm-vol').addEventListener('input', (e) => bgm.volume = e.target.value);
-document.getElementById('sfx-vol').addEventListener('input', (e) => { soundDrop.volume=e.target.value; soundMerge.volume=e.target.value; soundLaunch.volume=e.target.value; });
-document.getElementById('mute-chk').addEventListener('change', (e) => { isMuted=e.target.checked; isMuted ? bgm.pause() : (score>0 && bgm.play()); });
 document.getElementById('reset-btn').addEventListener('click', () => { if (confirm("진짜루요?")) location.reload(); });
 document.getElementById('next-img').src = FRUITS_CONFIG[nextLevel-1].img;
 </script>
 </body>
 </html>
-
