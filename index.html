@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Suika Game - Visual & Cooldown Update</title>
+    <title>Suika Game - Gacha Cheat & Fast Cooldown</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         body { 
@@ -17,7 +17,6 @@
         #center-area { 
             display: flex; flex-direction: column; align-items: center; gap: 10px; flex-shrink: 0;
             position: relative;
-            /* 통 양옆 배경 처리 */
             background: linear-gradient(to right, 
                 rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.4) calc(50% - 225px), 
                 transparent calc(50% - 225px), transparent calc(50% + 225px), 
@@ -69,7 +68,7 @@
             <div class="ui-box"><div class="label">TIME</div><span id="timer-val">00:00</span></div>
             <div class="ui-box"><div class="label">SCORE</div><span id="score-val">0</span></div>
             <div class="ui-box"><div class="label">NEXT</div><div id="next-preview"><img id="next-img" src="" alt="Next"></div></div>
-            <div class="ui-box"><button id="reset-btn">RESET</button><button id="launch-btn">🚀 발 사</button></div>
+            <div class="ui-box"><button id="reset-btn">RESET</button><button id="launch-btn">🚀 발 싸</button></div>
         </div>
     </div>
 
@@ -110,10 +109,7 @@ const render = Render.create({
 
 Render.run(render); Runner.run(Runner.create(), engine);
 
-const deathFloor = Bodies.rectangle(225, 870, 4000, 60, { 
-    isStatic: true, label: 'deathFloor', render: { fillStyle: 'transparent' } 
-});
-
+const deathFloor = Bodies.rectangle(225, 870, 4000, 60, { isStatic: true, label: 'deathFloor', render: { fillStyle: 'transparent' } });
 World.add(engine.world, [
     deathFloor,
     Bodies.rectangle(225, 795, 430, 20, { isStatic: true, label: 'safeWall', render: { fillStyle: '#5d4037' } }),
@@ -122,7 +118,7 @@ World.add(engine.world, [
 ]);
 
 let score=0, nextLevel=Math.floor(Math.random()*3)+1, isGameOver=false, isMuted=false, startTime=Date.now(), mouseX=225;
-let isClickable = true; // [쿨타임 변수 추가]
+let isClickable = true; // 쿨타임 변수
 
 const handleMove = (e) => {
     const rect = render.canvas.getBoundingClientRect();
@@ -153,13 +149,22 @@ function createFruit(x, y, level, isMerged=false) {
 
 Events.on(render, 'afterRender', () => {
     const ctx = render.context;
-    // 쿨타임 중이 아닐 때만 조준 가이드 표시
-    if (!isGameOver && isClickable) {
-        const c = FRUITS_CONFIG[nextLevel-1];
-        ctx.save(); ctx.globalAlpha = 0.4;
-        ctx.drawImage(document.getElementById('next-img'), mouseX - c.radius, 50 - c.radius, c.radius*2, c.radius*2);
-        ctx.beginPath(); ctx.setLineDash([5, 10]); ctx.moveTo(mouseX, 100); ctx.lineTo(mouseX, 780);
-        ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
+    if (!isGameOver) {
+        if (isClickable) {
+            const c = FRUITS_CONFIG[nextLevel-1];
+            ctx.save(); ctx.globalAlpha = 0.4;
+            ctx.drawImage(document.getElementById('next-img'), mouseX - c.radius, 50 - c.radius, c.radius*2, c.radius*2);
+            ctx.beginPath(); ctx.setLineDash([5, 10]); ctx.moveTo(mouseX, 100); ctx.lineTo(mouseX, 780);
+            ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
+        } else {
+            // [업데이트] 쿨타임 메시지 표시
+            ctx.save();
+            ctx.font = "bold 16px Pretendard";
+            ctx.fillStyle = "rgba(93, 64, 55, 0.6)";
+            ctx.textAlign = "center";
+            ctx.fillText("(드롭 쿨타임...)", mouseX, 50);
+            ctx.restore();
+        }
     }
     Composite.allBodies(engine.world).forEach(b => {
         if (b.circleRadius && !b.isEffect) {
@@ -170,15 +175,14 @@ Events.on(render, 'afterRender', () => {
 });
 
 const dropFruit = () => {
-    if (isGameOver || !isClickable) return; // 쿨타임 체크
+    if (isGameOver || !isClickable) return;
     if (bgm.paused && !isMuted) bgm.play();
     if (mouseX > 25 && mouseX < 425) {
         World.add(engine.world, createFruit(mouseX, 50, nextLevel));
         if(!isMuted) { soundDrop.currentTime=0; soundDrop.play(); }
         
-        // 쿨타임 시작
         isClickable = false;
-        setTimeout(() => { isClickable = true; }, 1500); // 1.5초 쿨타임
+        setTimeout(() => { isClickable = true; }, 500); // 쿨타임 0.5초로 변경
 
         nextLevel = Math.floor(Math.random()*3)+1;
         document.getElementById('next-img').src = FRUITS_CONFIG[nextLevel-1].img;
@@ -225,7 +229,20 @@ Events.on(engine, 'afterUpdate', () => {
     });
 });
 
-document.getElementById('cheat-btn').addEventListener('click', () => window.open('https://youtu.be/dQw4w9WgXcQ', '_blank'));
+// [업데이트] 치트키 버튼 가챠 시스템
+document.getElementById('cheat-btn').addEventListener('click', () => {
+    const rand = Math.random() * 100;
+    let url = 'https://youtu.be/dQw4w9WgXcQ?si=A2zpYlDcX7yCO3z5'; // 기본 94%
+    
+    if (rand < 1) { // 1% 확률
+        url = 'https://youtu.be/n0XsH4qJ9N0?si=4TbIIuk1RK0w3Tg0';
+    } else if (rand < 6) { // 5% 확률 (1~6 사이)
+        url = 'https://www.youtube.com/watch?v=SYacnl6MpSA';
+    }
+    
+    window.open(url, '_blank');
+});
+
 document.getElementById('launch-btn').addEventListener('click', () => {
     if (isGameOver) return;
     if (!isMuted) { soundLaunch.currentTime=0; soundLaunch.play(); }
