@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Suika Game - Ultimate Physics</title>
+    <title>Suika Game - Playtime & Fire Button</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         body { 
@@ -45,19 +45,16 @@
         .control-group label { font-size: 11px; font-weight: bold; color: #5d4037; display: block; margin-bottom: 4px; }
         
         input[type="range"] { width: 100%; cursor: pointer; }
-        .mute-wrap { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: bold; color: #5d4037; justify-content: center; margin-top: 5px; }
         
-        #reset-btn {
-            width: 100%; padding: 10px; cursor: pointer; background: #ff7043; color: white;
-            border: none; border-radius: 8px; font-weight: bold; transition: background 0.2s;
-        }
-        #reset-btn:hover { background: #f4511e; }
+        /* 버튼 스타일 */
+        #reset-btn { width: 100%; padding: 10px; cursor: pointer; background: #ff7043; color: white; border: none; border-radius: 8px; font-weight: bold; margin-bottom: 8px; }
+        #fire-btn { width: 100%; padding: 10px; cursor: pointer; background: #42a5f5; color: white; border: none; border-radius: 8px; font-weight: bold; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
 
         #next-preview { width: 70px; height: 70px; margin: 5px auto; border: 2px dashed #ccc; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 50%; }
         #next-img { max-width: 100%; max-height: 100%; object-fit: contain; }
         .label { font-size: 13px; color: #8d6e63; font-weight: bold; margin-bottom: 8px; }
-        #score-val { font-size: 24px; color: #5d4037; font-weight: bold; }
-        /* 경고문구 수정 */
+        #score-val, #timer-val { font-size: 24px; color: #5d4037; font-weight: bold; }
         #game-warning { font-weight: bold; color: #e53935; font-size: 13px; background: white; padding: 5px 15px; border-radius: 15px; border: 1px solid #e53935; }
     </style>
 </head>
@@ -65,17 +62,14 @@
 
     <div id="left-sidebar">
         <div class="ui-box">
-            <div class="label">AUDIO SETTINGS</div>
-            <div class="control-group">
-                <label>BGM VOL</label>
-                <input type="range" id="bgm-vol" min="0" max="1" step="0.1" value="0.3">
-            </div>
-            <div class="control-group">
-                <label>SFX VOL</label>
-                <input type="range" id="sfx-vol" min="0" max="1" step="0.1" value="0.4">
-            </div>
-            <div class="mute-wrap">
-                <input type="checkbox" id="mute-chk"> <label for="mute-chk">MUTE ALL</label>
+            <div class="label">PLAY TIME</div>
+            <span id="timer-val">00:00</span>
+        </div>
+        <div class="ui-box">
+            <div class="label">AUDIO</div>
+            <input type="range" id="bgm-vol" min="0" max="1" step="0.1" value="0.3">
+            <div class="mute-wrap" style="margin-top:10px;">
+                <input type="checkbox" id="mute-chk"> <label for="mute-chk" style="font-size:11px; font-weight:bold;">MUTE ALL</label>
             </div>
         </div>
         <div class="ui-box" id="evolution-chart">
@@ -84,16 +78,17 @@
     </div>
 
     <div id="center-area">
-        <div id="game-container">
-            <div id="limit-line-guide"></div>
-        </div>
+        <div id="game-container"><div id="limit-line-guide"></div></div>
         <div id="game-warning">⚠️ 선 밖에 공이 2.5초 이상 걸쳐있으면 게임 오버!</div>
     </div>
 
     <div id="right-sidebar">
         <div class="ui-box"><div class="label">SCORE</div><span id="score-val">0</span></div>
         <div class="ui-box"><div class="label">NEXT</div><div id="next-preview"><img id="next-img" src="" alt="Next"></div></div>
-        <div class="ui-box"><button id="reset-btn">GAME RESET</button></div>
+        <div class="ui-box">
+            <button id="reset-btn">GAME RESET</button>
+            <button id="fire-btn">🚀 발사!!</button>
+        </div>
     </div>
 
 <script>
@@ -101,6 +96,7 @@ const bgm = new Audio('Anyone_in_2025.wav');
 bgm.loop = true;
 const soundDrop = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
 const soundMerge = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3');
+const soundFire = new Audio('https://assets.mixkit.co/active_storage/sfx/588/588-preview.mp3'); // 발사음
 
 const FRUITS_CONFIG = [
     { level: 1, radius: 20, img: '1.webp', scale: 0.18, name: 'Lv.1' },
@@ -112,8 +108,19 @@ const FRUITS_CONFIG = [
     { level: 7, radius: 88, img: '7.webp', scale: 0.82, name: 'Lv.7' },
     { level: 8, radius: 105, img: '8.webp', scale: 0.98, name: 'Lv.8' },
     { level: 9, radius: 125, img: '9.webp', scale: 1.15, name: 'Lv.9' },
-    { level: 10, radius: 155, img: '10.png', scale: 1.40, name: 'Final' }
+    { level: 10, radius: 155, img: '10.jpg', scale: 1.40, name: 'Final' }
 ];
+
+// 타이머 변수
+let startTime = Date.now();
+let timerInterval = setInterval(updateTimer, 1000);
+
+function updateTimer() {
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const min = String(Math.floor(elapsed / 60)).padStart(2, '0');
+    const sec = String(elapsed % 60).padStart(2, '0');
+    document.getElementById('timer-val').innerText = `${min}:${sec}`;
+}
 
 const evoContainer = document.getElementById('evolution-chart');
 FRUITS_CONFIG.forEach((config) => {
@@ -125,9 +132,7 @@ FRUITS_CONFIG.forEach((config) => {
 
 const { Engine, Render, Runner, World, Bodies, Events, Composite, Body } = Matter;
 const engine = Engine.create();
-
-// 1. 탄력성 물리 패치
-engine.world.gravity.y = 1.0; // 중력을 살짝 낮춰 체감 탄성 증가
+engine.world.gravity.y = 1.0; 
 
 const render = Render.create({
     element: document.getElementById('game-container'),
@@ -155,35 +160,33 @@ function createFruit(x, y, level, isMerged = false) {
     const config = FRUITS_CONFIG[level - 1];
     const fruit = Bodies.circle(x, y, config.radius, {
         label: level.toString(),
-        restitution: 0.7, // 탄력 대폭 상향 (기존 0.4 -> 0.7)
-        friction: 0.02,  // 마찰을 낮춰 더 잘 굴러가게 함
+        restitution: 0.7,
+        friction: 0.02,
         render: { sprite: { texture: config.img, xScale: config.scale, yScale: config.scale } }
     });
-    // 합쳐질 때 더 통통 튀게 설정
     if (isMerged) Body.setVelocity(fruit, { x: Matter.Common.random(-3, 3), y: -5 });
     fruit.spawnTime = Date.now();
     return fruit;
 }
 
-Events.on(render, 'afterRender', () => {
-    const context = render.context;
-    const bodies = Composite.allBodies(engine.world);
-    context.save();
-    bodies.forEach(body => {
-        if (body.circleRadius) {
-            context.beginPath();
-            context.arc(body.position.x, body.position.y, body.circleRadius, 0, 2 * Math.PI);
-            context.setLineDash([5, 5]);
-            context.lineWidth = 1.5;
-            context.strokeStyle = 'rgba(93, 64, 55, 0.4)';
-            context.stroke();
-        }
+// 발사 기능 (게임 플레이에 영향 없는 유령 객체)
+document.getElementById('fire-btn').addEventListener('click', () => {
+    if (!isMuted) { soundFire.currentTime = 0; soundFire.play(); }
+    const randLevel = Math.floor(Math.random() * 5) + 1;
+    const config = FRUITS_CONFIG[randLevel - 1];
+    // 충돌 판정 없는(isSensor) 장식용 공 생성
+    const ghost = Bodies.circle(-50, 400 + Matter.Common.random(-100, 100), config.radius, {
+        isSensor: true,
+        render: { opacity: 0.7, sprite: { texture: config.img, xScale: config.scale, yScale: config.scale } }
     });
-    context.restore();
+    World.add(engine.world, ghost);
+    Body.setVelocity(ghost, { x: 15, y: Matter.Common.random(-5, 5) });
+    // 3초 후 제거
+    setTimeout(() => World.remove(engine.world, ghost), 3000);
 });
 
 window.addEventListener('mousedown', (e) => {
-    if (isGameOver || e.target.closest('.ui-box')) return;
+    if (isGameOver || e.target.closest('.ui-box') || e.target.id === 'reset-btn' || e.target.id === 'fire-btn') return;
     if (bgm.paused && !isMuted) bgm.play();
     const canvasRect = render.canvas.getBoundingClientRect();
     const x = e.clientX - canvasRect.left;
@@ -198,49 +201,33 @@ window.addEventListener('mousedown', (e) => {
 Events.on(engine, 'collisionStart', (event) => {
     event.pairs.forEach((pair) => {
         const { bodyA, bodyB } = pair;
-        if (bodyA.label === bodyB.label && !bodyA.isStatic && !bodyB.isStatic) {
+        if (bodyA.label === bodyB.label && !bodyA.isStatic && !bodyB.isStatic && !bodyA.isSensor && !bodyB.isSensor) {
             const currentLevel = parseInt(bodyA.label);
             if (currentLevel < 10) {
                 const midX = (bodyA.position.x + bodyB.position.x) / 2;
                 const midY = (bodyA.position.y + bodyB.position.y) / 2;
-                
-                // 주변 밀어내기 파워 강화
-                const bodies = Composite.allBodies(engine.world);
-                bodies.forEach(body => {
-                    const dist = Math.sqrt((body.position.x - midX)**2 + (body.position.y - midY)**2);
-                    if (dist < 150) {
-                        const force = (150 - dist) * 0.0006;
-                        Body.applyForce(body, body.position, { 
-                            x: (body.position.x - midX) * force, 
-                            y: (body.position.y - midY) * force 
-                        });
-                    }
-                });
-
                 World.remove(engine.world, [bodyA, bodyB]);
                 World.add(engine.world, createFruit(midX, midY, currentLevel + 1, true));
                 if(!isMuted) { soundMerge.currentTime = 0; soundMerge.play(); }
                 score += currentLevel * 10;
                 document.getElementById('score-val').innerText = score;
-
-                // 3-2. 클리어 메시지 수정
                 if (currentLevel + 1 === 10) {
-                    setTimeout(() => { alert('"유즈는 영원하다" GAME CLEAR!'); }, 500);
+                    clearInterval(timerInterval);
+                    setTimeout(() => { alert(`"유즈는 영원하다" GAME CLEAR!\n걸린 시간: ${document.getElementById('timer-val').innerText}`); }, 500);
                 }
             }
         }
     });
 });
 
-// 2 & 3-1. 게임 오버 판정 및 메시지 수정
 Events.on(engine, 'afterUpdate', () => {
     if (isGameOver) return;
     const bodies = Composite.allBodies(engine.world);
     for (let body of bodies) {
-        if (!body.isStatic && body.circleRadius) {
-            // 가이드라인(100) 침범 체크
+        if (!body.isStatic && body.circleRadius && !body.isSensor) {
             if (Date.now() - body.spawnTime > 2500 && (body.position.y - body.circleRadius) < 100) {
                 isGameOver = true;
+                clearInterval(timerInterval);
                 bgm.pause();
                 alert(`엠-마슷따... 허접이다냐 (최종 점수: ${score})`);
                 location.reload();
@@ -249,24 +236,9 @@ Events.on(engine, 'afterUpdate', () => {
     }
 });
 
-const bgmVolSlider = document.getElementById('bgm-vol');
-const sfxVolSlider = document.getElementById('sfx-vol');
-const muteChk = document.getElementById('mute-chk');
-
-bgmVolSlider.addEventListener('input', (e) => { bgm.volume = e.target.value; });
-sfxVolSlider.addEventListener('input', (e) => { 
-    soundDrop.volume = e.target.value; 
-    soundMerge.volume = e.target.value; 
-});
-muteChk.addEventListener('change', (e) => {
-    isMuted = e.target.checked;
-    if (isMuted) { bgm.pause(); } 
-    else { if (score > 0) bgm.play(); }
-});
-
-document.getElementById('reset-btn').addEventListener('click', () => {
-    if (confirm("진짜루요? (현재 점수가 사라집니다)")) location.reload();
-});
+document.getElementById('bgm-vol').addEventListener('input', (e) => { bgm.volume = e.target.value; });
+document.getElementById('mute-chk').addEventListener('change', (e) => { isMuted = e.target.checked; if (isMuted) bgm.pause(); else if (score > 0) bgm.play(); });
+document.getElementById('reset-btn').addEventListener('click', () => { if (confirm("진짜루요?")) location.reload(); });
 
 updateNextUI();
 </script>
