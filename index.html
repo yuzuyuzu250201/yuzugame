@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Suika Game - Fact Ticker Update</title>
+    <title>Suika Game - Countdown Update</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         body { 
@@ -14,28 +14,9 @@
         #main-wrapper { display: flex; justify-content: center; align-items: flex-start; gap: 15px; max-width: 100%; }
         #left-sidebar, #right-sidebar { display: flex; flex-direction: column; gap: 10px; width: 155px; flex-shrink: 0; }
         
-        #center-area { 
-            display: flex; flex-direction: column; align-items: center; gap: 10px; flex-shrink: 0;
-            position: relative;
-        }
+        #center-area { display: flex; flex-direction: column; align-items: center; gap: 10px; flex-shrink: 0; position: relative; }
 
-        /* [신규] 흘러가는 글귀 컨테이너 */
-        #ticker-container {
-            width: 450px; height: 30px; overflow: hidden; position: relative;
-            background: rgba(93, 64, 55, 0.1); border-radius: 8px; border: 1px solid rgba(93, 64, 55, 0.2);
-            display: flex; align-items: center;
-        }
-        .ticker-text {
-            position: absolute; white-space: nowrap; font-size: 13px; font-weight: bold;
-            color: #5d4037; transform: translateX(-100%);
-        }
-
-        /* 애니메이션 정의 */
-        @keyframes flow {
-            from { left: 0%; transform: translateX(-100%); }
-            to { left: 100%; transform: translateX(0%); }
-        }
-
+        /* 통 양옆 반투명 배경 효과 */
         #center-area::before, #center-area::after {
             content: ""; position: absolute; top: 0; width: 100vw; height: 800px;
             background: rgba(255, 255, 255, 0.5); z-index: -1; pointer-events: none;
@@ -43,10 +24,18 @@
         #center-area::before { right: 50%; margin-right: 225px; } 
         #center-area::after { left: 50%; margin-left: 225px; }  
 
+        #ticker-container {
+            width: 450px; height: 30px; overflow: hidden; position: relative;
+            background: rgba(93, 64, 55, 0.1); border-radius: 8px; border: 1px solid rgba(93, 64, 55, 0.2);
+            display: flex; align-items: center;
+        }
+        .ticker-text { position: absolute; white-space: nowrap; font-size: 13px; font-weight: bold; color: #5d4037; transform: translateX(-100%); }
+        @keyframes flow { from { left: 0%; transform: translateX(-100%); } to { left: 100%; transform: translateX(0%); } }
+
         #game-container { position: relative; box-shadow: 0 10px 50px rgba(0,0,0,0.2); border-radius: 15px; background: #fff; cursor: none; touch-action: none; z-index: 1; }
         canvas { display: block; border-radius: 15px; max-width: 100%; height: auto !important; }
         
-        #limit-line-guide { position: absolute; top: 12.5%; left: 0; width: 100%; height: 2px; border-top: 2px dashed #e53935; opacity: 0.6; pointer-events: none; }
+        #limit-line-guide { position: absolute; top: 100px; left: 0; width: 100%; height: 2px; border-top: 2px dashed #e53935; opacity: 0.6; pointer-events: none; }
         .ui-box { background: rgba(255, 255, 255, 0.9); padding: 12px; border-radius: 12px; border: 3px solid #5d4037; text-align: center; }
         #evolution-chart { text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 8px; }
         .evo-item { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: bold; color: #5d4037; }
@@ -85,9 +74,8 @@
         </div>
         <div id="center-area">
             <div id="ticker-container"></div>
-            
             <div id="game-container"><div id="limit-line-guide"></div></div>
-            <div id="game-warning">⚠️ 선을 넘거나 공이 밖으로 떨어지면 게임 오버!</div>
+            <div id="game-warning">⚠️ 선을 넘고 2.5초가 지나거나 밖으로 떨어지면 게임 오버!</div>
             <button id="cheat-btn">✨ 히든 치트키 ✨</button>
             <button id="bug-btn">버그로 억울하게 게임 오버 당했을 때 누르는 버튼</button>
         </div>
@@ -100,7 +88,6 @@
     </div>
 
 <script>
-// [글귀 설정] 글귀를 추가하고 싶으면 이 리스트에 문자열을 넣으세요!
 const TRIVIA_LIST = [
     "알고 계셨나요? 레몬 한 개에는 레몬 한 개의 비타민이 들어있습니다.",
     "개복치의 학명은 \"몰라 몰라\" 입니다.",
@@ -125,39 +112,28 @@ const TRIVIA_LIST = [
     "엠-마슷따 잘 좀 해봐라냐",
     "아카라이브 AI 채팅 채널 화이팅",
     "무규규 무규규규",
-    "나는 이제 너에 대한 처분을 스스로 용인하게 될 것 같아",
+    "이제 나는 너에 대한 처분을 스스로 용인하게 될 것 같아",
     "밥은 먹으셨나요?",
     "엠-마슷따 실망이다냐",
     "엠-마슷따 이게 뭐냐냐",
-    "사람의 마음이라던가 없는 기가?"
+    "사람의 마음이라던가 없는 기가?",
+    "당신 근처의 핫한 싱글 >>> http://yuzu..."
 ];
 
 function startTicker() {
     const container = document.getElementById('ticker-container');
-    
     function spawnText() {
         const text = TRIVIA_LIST[Math.floor(Math.random() * TRIVIA_LIST.length)];
-        const el = document.createElement('div');
-        el.className = 'ticker-text';
-        el.innerText = text;
-        
-        // 애니메이션 속도 조절 (글자 길이에 따라 조절 가능)
-        const duration = 8 + (text.length * 0.1); 
-        el.style.animation = `flow ${duration}s linear forwards`;
-        
+        const el = document.createElement('div'); el.className = 'ticker-text'; el.innerText = text;
+        const duration = 8 + (text.length * 0.1); el.style.animation = `flow ${duration}s linear forwards`;
         container.appendChild(el);
-        
-        // 애니메이션 끝나면 요소 삭제
         setTimeout(() => { el.remove(); }, duration * 1000);
-        
-        // 다음 문구 생성 예약 (5~12초 후)
         setTimeout(spawnText, 5000 + Math.random() * 7000);
     }
     spawnText();
 }
 startTicker();
 
-// --- 기존 Matter.js 로직 (변화 없음) ---
 const bgm = new Audio('Anyone_in_2025.wav'); bgm.loop = true;
 const soundDrop = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
 const soundMerge = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3');
@@ -173,7 +149,7 @@ const FRUITS_CONFIG = [
     { level: 7, radius: 88, img: '7.webp', scale: 0.82, name: 'Lv.7' },
     { level: 8, radius: 105, img: '8.webp', scale: 0.98, name: 'Lv.8' },
     { level: 9, radius: 125, img: '9.webp', scale: 1.15, name: 'Lv.9' },
-    { level: 10, radius: 155, img: '10.png', scale: 1.40, name: 'Final' }
+    { level: 10, radius: 155, img: '10.jpg', scale: 1.40, name: 'Final' }
 ];
 
 const evoContainer = document.getElementById('evolution-chart');
@@ -229,6 +205,7 @@ function createFruit(x, y, level, isMerged=false) {
     });
     if (isMerged) Body.setVelocity(f, { x: Matter.Common.random(-3, 3), y: -5 });
     f.spawnTime = Date.now();
+    f.overLineStartTime = null; // 선을 넘은 시간 기록용
     return f;
 }
 
@@ -242,18 +219,25 @@ Events.on(render, 'afterRender', () => {
             ctx.beginPath(); ctx.setLineDash([5, 10]); ctx.moveTo(mouseX, 100); ctx.lineTo(mouseX, 780);
             ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
         } else {
-            ctx.save();
-            ctx.font = "bold 14px Pretendard";
-            ctx.fillStyle = "rgba(93, 64, 55, 0.7)";
-            ctx.textAlign = "center";
-            ctx.fillText("(드롭 쿨타임...)", mouseX, 50);
-            ctx.restore();
+            ctx.save(); ctx.font = "bold 14px Pretendard"; ctx.fillStyle = "rgba(93, 64, 55, 0.7)";
+            ctx.textAlign = "center"; ctx.fillText("(드롭 쿨타임...)", mouseX, 50); ctx.restore();
         }
     }
+    
     Composite.allBodies(engine.world).forEach(b => {
         if (b.circleRadius && !b.isEffect) {
+            // 점선 효과
             ctx.beginPath(); ctx.arc(b.position.x, b.position.y, b.circleRadius, 0, 2*Math.PI);
             ctx.setLineDash([5,5]); ctx.lineWidth=1.5; ctx.strokeStyle='rgba(93,64,55,0.4)'; ctx.stroke();
+            
+            // [신규] 카운트다운 텍스트 렌더링
+            if (b.overLineStartTime) {
+                const elapsed = (Date.now() - b.overLineStartTime) / 1000;
+                const remaining = Math.max(0, (2.5 - elapsed)).toFixed(1);
+                ctx.save(); ctx.font = "bold 18px Pretendard"; ctx.fillStyle = "#e53935";
+                ctx.textAlign = "center"; ctx.fillText(`⚠️ ${remaining}s`, b.position.x, b.position.y - b.circleRadius - 10);
+                ctx.restore();
+            }
         }
     });
 });
@@ -276,10 +260,12 @@ render.canvas.addEventListener('touchstart', (e) => { e.preventDefault(); dropFr
 Events.on(engine, 'collisionStart', (event) => {
     event.pairs.forEach((pair) => {
         const { bodyA, bodyB } = pair;
+        // 바닥 충돌은 즉시 게임 오버
         if (bodyA.label === 'deathFloor' || bodyB.label === 'deathFloor') {
             const ball = bodyA.label === 'deathFloor' ? bodyB : bodyA;
             if (!ball.isEffect && !ball.isStatic && ball.circleRadius) gameOverAction();
         }
+        // 과일 합성
         if (bodyA.label === bodyB.label && !bodyA.isStatic && !bodyB.isStatic) {
             const currentLevel = parseInt(bodyA.label);
             if (currentLevel < 10) {
@@ -305,7 +291,21 @@ Events.on(engine, 'afterUpdate', () => {
     if (isGameOver) return;
     Composite.allBodies(engine.world).forEach(b => {
         if (!b.isStatic && b.circleRadius && !b.isEffect) {
-            if (Date.now() - b.spawnTime > 2500 && (b.position.y - b.circleRadius) < 100) gameOverAction();
+            // [버그 수정] 선을 넘었는지 체크 (y=100 기준)
+            const isOverLine = (b.position.y - b.circleRadius) < 100;
+            const timeSinceSpawn = Date.now() - b.spawnTime;
+
+            if (isOverLine && timeSinceSpawn > 1000) { // 생성 직후는 제외
+                if (!b.overLineStartTime) b.overLineStartTime = Date.now();
+                
+                // 2.5초 경과 체크
+                if (Date.now() - b.overLineStartTime > 2500) gameOverAction();
+            } else {
+                // 선 아래로 내려가면 카운트다운 초기화
+                b.overLineStartTime = null;
+            }
+
+            // 화면 밖으로 완전히 나갔을 때
             if (b.position.y > 850) gameOverAction();
         }
     });
@@ -319,9 +319,7 @@ document.getElementById('cheat-btn').addEventListener('click', () => {
     window.open(url, '_blank');
 });
 
-document.getElementById('bug-btn').addEventListener('click', () => {
-    alert("저런...");
-});
+document.getElementById('bug-btn').addEventListener('click', () => { alert("저런..."); });
 
 document.getElementById('launch-btn').addEventListener('click', () => {
     if (isGameOver) return;
@@ -340,5 +338,3 @@ document.getElementById('next-img').src = FRUITS_CONFIG[nextLevel-1].img;
 </script>
 </body>
 </html>
-
-
