@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Suika Game - Settings Persistence</title>
+    <title>Suika Game - Collision Fix Update</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         body { 
@@ -16,7 +16,6 @@
         
         #center-area { display: flex; flex-direction: column; align-items: center; gap: 10px; flex-shrink: 0; position: relative; }
 
-        /* 통 양옆 반투명 배경 효과 */
         #center-area::before, #center-area::after {
             content: ""; position: absolute; top: 0; width: 100vw; height: 800px;
             background: rgba(255, 255, 255, 0.5); z-index: -1; pointer-events: none;
@@ -83,14 +82,14 @@
             <div class="ui-box"><div class="label">TIME</div><span id="timer-val">00:00</span></div>
             <div class="ui-box"><div class="label">SCORE</div><span id="score-val">0</span></div>
             <div class="ui-box"><div class="label">NEXT</div><div id="next-preview"><img id="next-img" src="" alt="Next"></div></div>
-            <div class="ui-box"><button id="reset-btn">RESET</button><button id="launch-btn">🚀 발 싸</button></div>
+            <div class="ui-box"><button id="reset-btn">RESET</button><button id="launch-btn">🚀 발 사</button></div>
         </div>
     </div>
 
 <script>
 // --- Ticker 시스템 ---
-const TRIVIA_LIST = [
-    "알고 계셨나요? 레몬 한 개에는 레몬 한 개의 비타민이 들어있습니다.",
+const TRIVIA_LIST = 
+    ["알고 계셨나요? 레몬 한 개에는 레몬 한 개의 비타민이 들어있습니다.",                 
     "개복치의 학명은 \"몰라 몰라\" 입니다.",
     "유즈는 사실 귀여운 고양이 메이드입니다.",
     "서부 로랜드 고릴라의 학명은 \"고릴라 고릴라 고릴라\" 입니다.",
@@ -118,9 +117,8 @@ const TRIVIA_LIST = [
     "엠-마슷따 실망이다냐",
     "엠-마슷따 이게 뭐냐냐",
     "사람의 마음이라던가 없는 기가?",
-    "당신 근처의 핫한 싱글 >>> http://yuzu..."
-];
-
+    "당신 근처의 핫한 싱글 >>> http://yuzu..."];
+    
 function startTicker() {
     const container = document.getElementById('ticker-container');
     function spawnText() {
@@ -128,56 +126,65 @@ function startTicker() {
         const el = document.createElement('div'); el.className = 'ticker-text'; el.innerText = text;
         const duration = 8 + (text.length * 0.1); el.style.animation = `flow ${duration}s linear forwards`;
         container.appendChild(el);
-        setTimeout(() => { el.remove(); }, duration * 1000);
+        setTimeout(() => el.remove(), duration * 1000);
         setTimeout(spawnText, 5000 + Math.random() * 7000);
     }
     spawnText();
 }
 startTicker();
 
-// --- 오디오 및 설정 저장 로직 ---
+// --- 오디오 설정 ---
 const bgm = new Audio('Anyone_in_2025.wav'); bgm.loop = true;
 const soundDrop = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
 const soundMerge = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3');
 const soundLaunch = new Audio('https://assets.mixkit.co/active_storage/sfx/2816/2816-preview.mp3');
 
-// [업데이트] 설정 불러오기 및 적용
 function initAudioSettings() {
     const savedBgm = localStorage.getItem('suika-bgm-vol') || 0.3;
     const savedSfx = localStorage.getItem('suika-sfx-vol') || 0.4;
     const savedMute = localStorage.getItem('suika-mute') === 'true';
-
-    bgm.volume = savedBgm;
-    soundDrop.volume = savedSfx;
-    soundMerge.volume = savedSfx;
-    soundLaunch.volume = savedSfx;
-    
-    document.getElementById('bgm-vol').value = savedBgm;
-    document.getElementById('sfx-vol').value = savedSfx;
-    document.getElementById('mute-chk').checked = savedMute;
-    
+    bgm.volume = savedBgm; soundDrop.volume = savedSfx; soundMerge.volume = savedSfx; soundLaunch.volume = savedSfx;
+    document.getElementById('bgm-vol').value = savedBgm; document.getElementById('sfx-vol').value = savedSfx; document.getElementById('mute-chk').checked = savedMute;
     return savedMute;
 }
-
 let isMuted = initAudioSettings();
 
-// 볼륨 이벤트 리스너 (저장 기능 포함)
-document.getElementById('bgm-vol').addEventListener('input', (e) => {
-    bgm.volume = e.target.value;
-    localStorage.setItem('suika-bgm-vol', e.target.value);
-});
-document.getElementById('sfx-vol').addEventListener('input', (e) => {
-    const val = e.target.value;
-    soundDrop.volume = val; soundMerge.volume = val; soundLaunch.volume = val;
-    localStorage.setItem('suika-sfx-vol', val);
-});
-document.getElementById('mute-chk').addEventListener('change', (e) => {
-    isMuted = e.target.checked;
-    localStorage.setItem('suika-mute', isMuted);
-    isMuted ? bgm.pause() : (score > 0 && bgm.play());
+document.getElementById('bgm-vol').addEventListener('input', (e) => { bgm.volume = e.target.value; localStorage.setItem('suika-bgm-vol', e.target.value); });
+document.getElementById('sfx-vol').addEventListener('input', (e) => { const val = e.target.value; soundDrop.volume = val; soundMerge.volume = val; soundLaunch.volume = val; localStorage.setItem('suika-sfx-vol', val); });
+document.getElementById('mute-chk').addEventListener('change', (e) => { isMuted = e.target.checked; localStorage.setItem('suika-mute', isMuted); isMuted ? bgm.pause() : (score > 0 && bgm.play()); });
+
+// --- Matter.js 물리 엔진 설정 ---
+const { Engine, Render, Runner, World, Bodies, Events, Composite, Body } = Matter;
+const engine = Engine.create();
+engine.world.gravity.y = 1.0;
+// [뚫림 방지] 물리 정밀도 향상
+engine.positionIterations = 10; 
+
+const render = Render.create({
+    element: document.getElementById('game-container'),
+    engine: engine,
+    options: { width: 450, height: 800, wireframes: false, background: 'transparent' }
 });
 
-// --- 기존 Matter.js 로직 ---
+Render.run(render); Runner.run(Runner.create(), engine);
+
+// [벽 강화] 두께를 100으로 설정하여 절대 뚫리지 않게 함
+const wallOptions = { isStatic: true, render: { fillStyle: '#5d4037' } };
+const invisibleWallOptions = { isStatic: true, render: { fillStyle: 'transparent' } };
+
+// 바닥 (y=795 중심, 두께 100)
+const ground = Bodies.rectangle(225, 845, 450, 100, wallOptions);
+// 왼쪽 벽 (x=5 중심, 두께 100 -> 실제 벽면은 x=55가 아니라 x=5)
+const leftWall = Bodies.rectangle(-45, 400, 100, 800, wallOptions);
+// 오른쪽 벽 (x=445 중심, 두께 100)
+const rightWall = Bodies.rectangle(495, 400, 100, 800, wallOptions);
+
+// 통 밖 게임오버 바닥 (아주 넓고 두껍게)
+const deathFloor = Bodies.rectangle(225, 950, 5000, 200, { isStatic: true, label: 'deathFloor', render: { fillStyle: 'transparent' } });
+
+World.add(engine.world, [ground, leftWall, rightWall, deathFloor]);
+
+// --- 과일 데이터 및 로직 ---
 const FRUITS_CONFIG = [
     { level: 1, radius: 20, img: '1.webp', scale: 0.18, name: 'Lv.1' },
     { level: 2, radius: 28, img: '2.webp', scale: 0.25, name: 'Lv.2' },
@@ -198,27 +205,7 @@ FRUITS_CONFIG.forEach(c => {
     evoContainer.appendChild(d);
 });
 
-const { Engine, Render, Runner, World, Bodies, Events, Composite, Body } = Matter;
-const engine = Engine.create(); engine.world.gravity.y = 1.0; 
-
-const render = Render.create({
-    element: document.getElementById('game-container'),
-    engine: engine,
-    options: { width: 450, height: 800, wireframes: false, background: 'transparent' }
-});
-
-Render.run(render); Runner.run(Runner.create(), engine);
-
-const deathFloor = Bodies.rectangle(225, 870, 5000, 60, { isStatic: true, label: 'deathFloor', render: { fillStyle: 'transparent' } });
-World.add(engine.world, [
-    deathFloor,
-    Bodies.rectangle(225, 795, 430, 20, { isStatic: true, label: 'safeWall', render: { fillStyle: '#5d4037' } }),
-    Bodies.rectangle(5, 450, 10, 700, { isStatic: true, label: 'safeWall', render: { fillStyle: '#5d4037' } }),
-    Bodies.rectangle(445, 450, 10, 700, { isStatic: true, label: 'safeWall', render: { fillStyle: '#5d4037' } })
-]);
-
-let score=0, nextLevel=Math.floor(Math.random()*3)+1, isGameOver=false, startTime=Date.now(), mouseX=225;
-let isClickable = true;
+let score=0, nextLevel=Math.floor(Math.random()*3)+1, isGameOver=false, startTime=Date.now(), mouseX=225, isClickable = true;
 
 const handleMove = (e) => {
     const rect = render.canvas.getBoundingClientRect();
@@ -239,12 +226,11 @@ setInterval(updateTimer, 1000);
 function createFruit(x, y, level, isMerged=false) {
     const c = FRUITS_CONFIG[level-1];
     const f = Bodies.circle(x, y, c.radius, {
-        label: level.toString(), restitution: 0.7, friction: 0.02,
+        label: level.toString(), restitution: 0.4, friction: 0.1,
         render: { sprite: { texture: c.img, xScale: c.scale, yScale: c.scale } }
     });
-    if (isMerged) Body.setVelocity(f, { x: Matter.Common.random(-3, 3), y: -5 });
-    f.spawnTime = Date.now();
-    f.overLineStartTime = null;
+    if (isMerged) Body.setVelocity(f, { x: Matter.Common.random(-2, 2), y: -2 });
+    f.spawnTime = Date.now(); f.overLineStartTime = null;
     return f;
 }
 
@@ -262,7 +248,6 @@ Events.on(render, 'afterRender', () => {
             ctx.textAlign = "center"; ctx.fillText("(드롭 쿨타임...)", mouseX, 50); ctx.restore();
         }
     }
-    
     Composite.allBodies(engine.world).forEach(b => {
         if (b.circleRadius && !b.isEffect) {
             ctx.beginPath(); ctx.arc(b.position.x, b.position.y, b.circleRadius, 0, 2*Math.PI);
@@ -285,7 +270,7 @@ const dropFruit = () => {
         World.add(engine.world, createFruit(mouseX, 50, nextLevel));
         if(!isMuted) { soundDrop.currentTime=0; soundDrop.play(); }
         isClickable = false;
-        setTimeout(() => { isClickable = true; }, 500); 
+        setTimeout(() => isClickable = true, 500); 
         nextLevel = Math.floor(Math.random()*3)+1;
         document.getElementById('next-img').src = FRUITS_CONFIG[nextLevel-1].img;
     }
@@ -296,10 +281,7 @@ render.canvas.addEventListener('touchstart', (e) => { e.preventDefault(); dropFr
 Events.on(engine, 'collisionStart', (event) => {
     event.pairs.forEach((pair) => {
         const { bodyA, bodyB } = pair;
-        if (bodyA.label === 'deathFloor' || bodyB.label === 'deathFloor') {
-            const ball = bodyA.label === 'deathFloor' ? bodyB : bodyA;
-            if (!ball.isEffect && !ball.isStatic && ball.circleRadius) gameOverAction();
-        }
+        if (bodyA.label === 'deathFloor' || bodyB.label === 'deathFloor') gameOverAction();
         if (bodyA.label === bodyB.label && !bodyA.isStatic && !bodyB.isStatic) {
             const currentLevel = parseInt(bodyA.label);
             if (currentLevel < 10) {
@@ -309,7 +291,6 @@ Events.on(engine, 'collisionStart', (event) => {
                 World.add(engine.world, createFruit(midX, midY, currentLevel+1, true));
                 if(!isMuted) { soundMerge.currentTime=0; soundMerge.play(); }
                 score += currentLevel*10; document.getElementById('score-val').innerText = score;
-                if (currentLevel+1 === 10) setTimeout(() => alert('"유즈는 영원하다" CLEAR!'), 500);
             }
         }
     });
@@ -331,7 +312,7 @@ Events.on(engine, 'afterUpdate', () => {
                 if (!b.overLineStartTime) b.overLineStartTime = Date.now();
                 if (Date.now() - b.overLineStartTime > 2500) gameOverAction();
             } else { b.overLineStartTime = null; }
-            if (b.position.y > 850) gameOverAction();
+            if (b.position.y > 900) gameOverAction();
         }
     });
 });
@@ -343,9 +324,7 @@ document.getElementById('cheat-btn').addEventListener('click', () => {
     else if (rand < 6) url = 'https://www.youtube.com/watch?v=SYacnl6MpSA';
     window.open(url, '_blank');
 });
-
-document.getElementById('bug-btn').addEventListener('click', () => { alert("저런..."); });
-
+document.getElementById('bug-btn').addEventListener('click', () => alert("저런..."));
 document.getElementById('launch-btn').addEventListener('click', () => {
     if (isGameOver) return;
     if (!isMuted) { soundLaunch.currentTime=0; soundLaunch.play(); }
@@ -354,7 +333,6 @@ document.getElementById('launch-btn').addEventListener('click', () => {
     World.add(engine.world, eb); Body.setVelocity(eb, {x:15, y:-5});
     setTimeout(() => World.remove(engine.world, eb), 2000);
 });
-
 document.getElementById('reset-btn').addEventListener('click', () => { if (confirm("진짜루요?")) location.reload(); });
 document.getElementById('next-img').src = FRUITS_CONFIG[nextLevel-1].img;
 </script>
