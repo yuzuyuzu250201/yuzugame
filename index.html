@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Suika Game - Clear Fix Update</title>
+    <title>Suika Game - Launch Bug Fix</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         body { 
@@ -75,14 +75,14 @@
             <div class="ui-box"><div class="label">TIME</div><span id="timer-val">00:00</span></div>
             <div class="ui-box"><div class="label">SCORE</div><span id="score-val">0</span></div>
             <div class="ui-box"><div class="label">NEXT</div><div id="next-preview"><img id="next-img" src="" alt="Next"></div></div>
-            <div class="ui-box"><button id="reset-btn">RESET</button><button id="launch-btn">🚀 발 사</button></div>
+            <div class="ui-box"><button id="reset-btn">RESET</button><button id="launch-btn">🚀 발 싸</button></div>
         </div>
     </div>
 
 <script>
-// --- Ticker 시스템 ---
 const TRIVIA_LIST = 
-    ["개복치의 학명은 \"몰라 몰라\" 입니다.",
+    ["알고 계셨나요? 레몬 한 개에는 레몬 한 개의 비타민이 들어있습니다.", 
+    "개복치의 학명은 \"몰라 몰라\" 입니다.",
     "유즈는 사실 귀여운 고양이 메이드입니다.",
     "서부 로랜드 고릴라의 학명은 \"고릴라 고릴라 고릴라\" 입니다.",
     "DORO DORO DORO DORO DORO DORORONG",
@@ -125,7 +125,6 @@ function startTicker() {
 }
 startTicker();
 
-// --- 오디오 설정 ---
 const bgm = new Audio('Anyone_in_2025.wav'); bgm.loop = true;
 const soundDrop = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
 const soundMerge = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3');
@@ -145,7 +144,6 @@ document.getElementById('bgm-vol').addEventListener('input', (e) => { bgm.volume
 document.getElementById('sfx-vol').addEventListener('input', (e) => { const val = e.target.value; soundDrop.volume = val; soundMerge.volume = val; soundLaunch.volume = val; localStorage.setItem('suika-sfx-vol', val); });
 document.getElementById('mute-chk').addEventListener('change', (e) => { isMuted = e.target.checked; localStorage.setItem('suika-mute', isMuted); isMuted ? bgm.pause() : (score > 0 && bgm.play()); });
 
-// --- Matter.js 물리 엔진 ---
 const { Engine, Render, Runner, World, Bodies, Events, Composite, Body } = Matter;
 const engine = Engine.create();
 engine.world.gravity.y = 1.0;
@@ -213,13 +211,7 @@ function createFruit(x, y, level, isMerged=false) {
     });
     if (isMerged) Body.setVelocity(f, { x: Matter.Common.random(-2, 2), y: -2 });
     f.spawnTime = Date.now(); f.overLineStartTime = null;
-    
-    // [수정] 10레벨 생성 시 즉시 클리어 체크
-    if (level === 10) {
-        setTimeout(() => {
-            alert("\"유즈는 영원하다\" GAME CLEAR!");
-        }, 500);
-    }
+    if (level === 10) setTimeout(() => alert("\"유즈는 영원하다.\ GAME CLEAR!"), 500);
     return f;
 }
 
@@ -270,8 +262,12 @@ render.canvas.addEventListener('touchstart', (e) => { e.preventDefault(); dropFr
 Events.on(engine, 'collisionStart', (event) => {
     event.pairs.forEach((pair) => {
         const { bodyA, bodyB } = pair;
-        if (bodyA.label === 'deathFloor' || bodyB.label === 'deathFloor') gameOverAction();
-        if (bodyA.label === bodyB.label && !bodyA.isStatic && !bodyB.isStatic) {
+        // [수정] 발사된 공(isEffect)은 바닥 충돌로 인한 게임오버 무시
+        if (bodyA.label === 'deathFloor' || bodyB.label === 'deathFloor') {
+            const ball = (bodyA.label === 'deathFloor') ? bodyB : bodyA;
+            if (!ball.isEffect) gameOverAction();
+        }
+        if (bodyA.label === bodyB.label && !bodyA.isStatic && !bodyB.isStatic && !bodyA.isEffect && !bodyB.isEffect) {
             const currentLevel = parseInt(bodyA.label);
             if (currentLevel < 10) {
                 const midX = (bodyA.position.x + bodyB.position.x) / 2;
@@ -294,6 +290,7 @@ function gameOverAction() {
 Events.on(engine, 'afterUpdate', () => {
     if (isGameOver) return;
     Composite.allBodies(engine.world).forEach(b => {
+        // [수정] 발사된 공(isEffect)은 선 넘기 체크 무시
         if (!b.isStatic && b.circleRadius && !b.isEffect) {
             const isOverLine = (b.position.y - b.circleRadius) < 100;
             const timeSinceSpawn = Date.now() - b.spawnTime;
@@ -314,14 +311,17 @@ document.getElementById('cheat-btn').addEventListener('click', () => {
     window.open(url, '_blank');
 });
 document.getElementById('bug-btn').addEventListener('click', () => alert("저런..."));
+
 document.getElementById('launch-btn').addEventListener('click', () => {
     if (isGameOver) return;
     if (!isMuted) { soundLaunch.currentTime=0; soundLaunch.play(); }
     const c = FRUITS_CONFIG[Math.floor(Math.random()*5)];
+    // 발사되는 공에 isEffect: true를 확실히 부여
     const eb = Bodies.circle(-50, 400, c.radius, { isSensor:true, isEffect:true, render:{sprite:{texture:c.img, xScale:c.scale, yScale:c.scale}} });
     World.add(engine.world, eb); Body.setVelocity(eb, {x:15, y:-5});
     setTimeout(() => World.remove(engine.world, eb), 2000);
 });
+
 document.getElementById('reset-btn').addEventListener('click', () => { if (confirm("진짜루요?")) location.reload(); });
 document.getElementById('next-img').src = FRUITS_CONFIG[nextLevel-1].img;
 </script>
