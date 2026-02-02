@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Suika Game - Collision Fix Update</title>
+    <title>Suika Game - Clear Fix Update</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         body { 
@@ -13,16 +13,13 @@
         }
         #main-wrapper { display: flex; justify-content: center; align-items: flex-start; gap: 15px; max-width: 100%; }
         #left-sidebar, #right-sidebar { display: flex; flex-direction: column; gap: 10px; width: 155px; flex-shrink: 0; }
-        
         #center-area { display: flex; flex-direction: column; align-items: center; gap: 10px; flex-shrink: 0; position: relative; }
-
         #center-area::before, #center-area::after {
             content: ""; position: absolute; top: 0; width: 100vw; height: 800px;
             background: rgba(255, 255, 255, 0.5); z-index: -1; pointer-events: none;
         }
         #center-area::before { right: 50%; margin-right: 225px; } 
         #center-area::after { left: 50%; margin-left: 225px; }  
-
         #ticker-container {
             width: 450px; height: 30px; overflow: hidden; position: relative;
             background: rgba(93, 64, 55, 0.1); border-radius: 8px; border: 1px solid rgba(93, 64, 55, 0.2);
@@ -30,10 +27,8 @@
         }
         .ticker-text { position: absolute; white-space: nowrap; font-size: 13px; font-weight: bold; color: #5d4037; transform: translateX(-100%); }
         @keyframes flow { from { left: 0%; transform: translateX(-100%); } to { left: 100%; transform: translateX(0%); } }
-
         #game-container { position: relative; box-shadow: 0 10px 50px rgba(0,0,0,0.2); border-radius: 15px; background: #fff; cursor: none; touch-action: none; z-index: 1; }
         canvas { display: block; border-radius: 15px; max-width: 100%; height: auto !important; }
-        
         #limit-line-guide { position: absolute; top: 100px; left: 0; width: 100%; height: 2px; border-top: 2px dashed #e53935; opacity: 0.6; pointer-events: none; }
         .ui-box { background: rgba(255, 255, 255, 0.9); padding: 12px; border-radius: 12px; border: 3px solid #5d4037; text-align: center; }
         #evolution-chart { text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 8px; }
@@ -46,11 +41,9 @@
         #reset-btn, #launch-btn { width: 100%; padding: 8px; cursor: pointer; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 12px; margin-bottom: 5px; }
         #reset-btn { background: #ff7043; }
         #launch-btn { background: #4caf50; }
-        
         #cheat-btn, #bug-btn { width: 180px; padding: 8px; cursor: pointer; color: #5d4037; border: 3px solid #5d4037; border-radius: 8px; font-weight: bold; font-size: 11px; }
         #cheat-btn { background: #ffeb3b; margin-bottom: 5px; }
         #bug-btn { background: #ffffff; }
-
         #next-preview { width: 50px; height: 50px; margin: 5px auto; border: 2px dashed #ccc; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 50%; }
         #next-img { max-width: 100%; max-height: 100%; object-fit: contain; }
         .label { font-size: 11px; color: #8d6e63; font-weight: bold; margin-bottom: 5px; }
@@ -89,8 +82,7 @@
 <script>
 // --- Ticker 시스템 ---
 const TRIVIA_LIST = 
-    ["알고 계셨나요? 레몬 한 개에는 레몬 한 개의 비타민이 들어있습니다.",                 
-    "개복치의 학명은 \"몰라 몰라\" 입니다.",
+    ["개복치의 학명은 \"몰라 몰라\" 입니다.",
     "유즈는 사실 귀여운 고양이 메이드입니다.",
     "서부 로랜드 고릴라의 학명은 \"고릴라 고릴라 고릴라\" 입니다.",
     "DORO DORO DORO DORO DORO DORORONG",
@@ -153,11 +145,10 @@ document.getElementById('bgm-vol').addEventListener('input', (e) => { bgm.volume
 document.getElementById('sfx-vol').addEventListener('input', (e) => { const val = e.target.value; soundDrop.volume = val; soundMerge.volume = val; soundLaunch.volume = val; localStorage.setItem('suika-sfx-vol', val); });
 document.getElementById('mute-chk').addEventListener('change', (e) => { isMuted = e.target.checked; localStorage.setItem('suika-mute', isMuted); isMuted ? bgm.pause() : (score > 0 && bgm.play()); });
 
-// --- Matter.js 물리 엔진 설정 ---
+// --- Matter.js 물리 엔진 ---
 const { Engine, Render, Runner, World, Bodies, Events, Composite, Body } = Matter;
 const engine = Engine.create();
 engine.world.gravity.y = 1.0;
-// [뚫림 방지] 물리 정밀도 향상
 engine.positionIterations = 10; 
 
 const render = Render.create({
@@ -168,23 +159,14 @@ const render = Render.create({
 
 Render.run(render); Runner.run(Runner.create(), engine);
 
-// [벽 강화] 두께를 100으로 설정하여 절대 뚫리지 않게 함
 const wallOptions = { isStatic: true, render: { fillStyle: '#5d4037' } };
-const invisibleWallOptions = { isStatic: true, render: { fillStyle: 'transparent' } };
-
-// 바닥 (y=795 중심, 두께 100)
 const ground = Bodies.rectangle(225, 845, 450, 100, wallOptions);
-// 왼쪽 벽 (x=5 중심, 두께 100 -> 실제 벽면은 x=55가 아니라 x=5)
 const leftWall = Bodies.rectangle(-45, 400, 100, 800, wallOptions);
-// 오른쪽 벽 (x=445 중심, 두께 100)
 const rightWall = Bodies.rectangle(495, 400, 100, 800, wallOptions);
-
-// 통 밖 게임오버 바닥 (아주 넓고 두껍게)
 const deathFloor = Bodies.rectangle(225, 950, 5000, 200, { isStatic: true, label: 'deathFloor', render: { fillStyle: 'transparent' } });
 
 World.add(engine.world, [ground, leftWall, rightWall, deathFloor]);
 
-// --- 과일 데이터 및 로직 ---
 const FRUITS_CONFIG = [
     { level: 1, radius: 20, img: '1.webp', scale: 0.18, name: 'Lv.1' },
     { level: 2, radius: 28, img: '2.webp', scale: 0.25, name: 'Lv.2' },
@@ -231,6 +213,13 @@ function createFruit(x, y, level, isMerged=false) {
     });
     if (isMerged) Body.setVelocity(f, { x: Matter.Common.random(-2, 2), y: -2 });
     f.spawnTime = Date.now(); f.overLineStartTime = null;
+    
+    // [수정] 10레벨 생성 시 즉시 클리어 체크
+    if (level === 10) {
+        setTimeout(() => {
+            alert("\"유즈는 영원하다\" GAME CLEAR!");
+        }, 500);
+    }
     return f;
 }
 
